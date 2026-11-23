@@ -60,9 +60,9 @@ it('erases through every supporting eraser from outside a request and returns re
 
     expect($result->isComplete())->toBeTrue()
         ->and(array_map(static fn (PrivacyErasureReceiptData $receipt): array => $receipt->toArray(), $result->receipts))->toBe([
-            ['contributor' => 'mailing-list', 'mode' => 'delete', 'affected_records' => 2, 'erased_files' => [], 'suppression_marker_retained' => true],
+            ['contributor' => 'mailing-list', 'mode' => 'delete', 'affected_records' => 2, 'erased_files' => [], 'suppression_marker_retained' => true, 'retained_records' => []],
             // Asked to delete, the package anonymised the records it must keep, and says so.
-            ['contributor' => 'site-notes', 'mode' => 'anonymize', 'affected_records' => 1, 'erased_files' => ['local:site notes/' . $site->getKey() . '/My CV.pdf'], 'suppression_marker_retained' => false],
+            ['contributor' => 'site-notes', 'mode' => 'anonymize', 'affected_records' => 1, 'erased_files' => ['local:site notes/' . $site->getKey() . '/My CV.pdf'], 'suppression_marker_retained' => false, 'retained_records' => []],
         ])
         ->and(EmailListPrivacyContributor::$entries)->toBe([])
         ->and(json_encode(array_map(static fn (PrivacyErasureReceiptData $receipt): array => $receipt->toArray(), $result->receipts), JSON_THROW_ON_ERROR))->not->toContain('jane@example.test');
@@ -100,7 +100,7 @@ it('records an eraser receipt for another package or an undeclared suppression m
 
     $result = $registry->erase(PrivacySubject::forEmail('jane@example.test'), PrivacyErasureMode::Anonymize);
     // The receipt the package returned is kept, so an operator can see what it says it erased.
-    $rejected = ['contributor' => $case === 'marker' ? 'misreporting' : 'someone-else', 'mode' => 'anonymize', 'affected_records' => 0, 'erased_files' => [], 'suppression_marker_retained' => $case === 'marker'];
+    $rejected = ['contributor' => $case === 'marker' ? 'misreporting' : 'someone-else', 'mode' => 'anonymize', 'affected_records' => 0, 'erased_files' => [], 'suppression_marker_retained' => $case === 'marker', 'retained_records' => []];
 
     expect($result->isComplete())->toBeFalse()
         ->and(array_map(static fn (PrivacyErasureFailureData $failure): array => $failure->toArray(), $result->failures))->toBe([['contributor' => 'misreporting', 'code' => $code, 'exception_class' => null, 'rejected_receipt' => $rejected]])
@@ -192,6 +192,16 @@ it('accepts stored file paths with spaces and refuses control characters or a ne
         ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, ["public:uploads/a\nb.pdf"]))->toThrow(InvalidArgumentException::class)
         ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, ['no-disk-separator']))->toThrow(InvalidArgumentException::class)
         ->and(fn (): PrivacyExportSectionData => new PrivacyExportSectionData([], ["local:a\tb"]))->toThrow(InvalidArgumentException::class);
+});
+
+it('keeps the ids and reason of records an eraser deliberately kept, and refuses anything that could carry personal data', function (): void {
+    $receipt = new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 1, retainedRecords: [PrivacyErasureReceiptData::RETAINED_LEGAL_HOLD => [7, 9]]);
+
+    expect($receipt->retainedCount())->toBe(2)
+        ->and($receipt->toArray()['retained_records'])->toBe(['legal_hold' => [7, 9]])
+        ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, retainedRecords: ['legal_hold' => ['person@example.test']]))->toThrow(InvalidArgumentException::class)
+        ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, retainedRecords: ['Kept for Jane' => [1]]))->toThrow(InvalidArgumentException::class)
+        ->and(fn (): PrivacyErasureReceiptData => new PrivacyErasureReceiptData('x', PrivacyErasureMode::Delete, 0, retainedRecords: ['legal_hold' => []]))->toThrow(InvalidArgumentException::class);
 });
 
 it('reports a failing eraser to the exception handler and still records the failure', function (): void {
