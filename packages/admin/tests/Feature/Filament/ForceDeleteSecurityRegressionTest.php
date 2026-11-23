@@ -255,6 +255,8 @@ it('protects retained trashed strong graph dependants of media in the shared val
     $page->delete();
     $media->delete();
     grantForceDeletionTestPermissions(ResourceEnum::Media);
+    // Force-deleting media that belongs to a page needs the right to update that page as well.
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ResourceEnum::Page->permission('update'), 'web'));
     expect(ValidateForceDeleteAction::run($media, null))->toBeFalse();
 
     expect($media->fresh())->not->toBeNull()
