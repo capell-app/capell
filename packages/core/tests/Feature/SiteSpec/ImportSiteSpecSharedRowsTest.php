@@ -14,7 +14,7 @@ use Illuminate\Testing\PendingCommand;
 use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
-    // The seeded English default carries the flag "gb-eng"; the spec below asks for "gb".
+    // The seeded English default carries the flag "gb-eng"; the explicit spec below asks for "gb".
     CreateDefaultLanguagesAction::run(['en']);
     Queue::fake();
 });
@@ -111,4 +111,36 @@ it('reuses an identical existing language and theme without asking', function ()
     }
 
     expect(Site::query()->where('name', 'Shared Rows Co')->exists())->toBeTrue();
+});
+
+it('imports a spec that only names the language onto a stock install without a flag or a change', function (): void {
+    // A stock install seeds English with the flag "gb-eng". The author wrote only the code, so the
+    // spec's own default flag ("gb") is not an instruction and must neither block nor rewrite the row.
+    $path = tempnam(sys_get_temp_dir(), 'capell-site-spec-stock-');
+    file_put_contents($path, json_encode([
+        'site' => ['name' => 'Stock Install Co', 'businessName' => 'Stock Install'],
+        'language' => ['code' => 'en'],
+        'theme' => ['key' => 'default'],
+        'pages' => [[
+            'name' => 'Home',
+            'slug' => 'home',
+            'title' => 'Home title',
+            'pageType' => 'default',
+            'order' => 0,
+            'sections' => [['type' => 'content', 'content' => '<p>Imported copy.</p>']],
+        ]],
+    ], JSON_THROW_ON_ERROR));
+    $before = Language::query()->where('code', 'en')->firstOrFail()->only(['name', 'locale', 'flag', 'default']);
+
+    try {
+        $command = $this->artisan('capell:site-spec-import', ['spec' => $path]);
+        assert($command instanceof PendingCommand);
+        $command->assertExitCode(Command::SUCCESS)->run();
+    } finally {
+        unlink($path);
+    }
+
+    expect(Site::query()->where('name', 'Stock Install Co')->exists())->toBeTrue()
+        ->and(Language::query()->where('code', 'en')->firstOrFail()->only(['name', 'locale', 'flag', 'default']))->toBe($before)
+        ->and($before['flag'])->toBe('gb-eng');
 });

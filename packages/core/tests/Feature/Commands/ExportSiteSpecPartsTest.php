@@ -17,7 +17,6 @@ use Capell\Core\Data\SiteSpec\SiteSpecExportPartData;
 use Capell\Core\Enums\PropertyType;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\BlueprintPropertySet;
-use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PagePropertyValue;
 use Capell\Core\Models\PropertyDefinition;
@@ -31,9 +30,6 @@ use Illuminate\Validation\ValidationException;
 
 beforeEach(function (): void {
     CreateDefaultLanguagesAction::run(['en']);
-    // An import no longer rewrites a language that differs from its spec; the seeded
-    // English default uses the flag "gb-eng" where these specs ask for "gb".
-    Language::query()->where('code', 'en')->update(['flag' => 'gb']);
     Queue::fake();
     Storage::fake('public', ['url' => 'https://93.184.216.34/storage']);
     config()->set('media-library.disk_name', 'public');

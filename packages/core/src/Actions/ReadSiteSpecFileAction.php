@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Core\Actions;
 
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Data\SiteSpec\CapellSiteSpecLanguageData;
 use Illuminate\Validation\ValidationException;
 use JsonException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -38,6 +39,15 @@ final class ReadSiteSpecFileAction
             throw ValidationException::withMessages($validation['errors']);
         }
 
-        return CapellSiteSpecData::from($validation['normalized']);
+        // Validation normalises with defaults filled in. Record which language attributes the author wrote,
+        // so a default is never mistaken for an instruction to change an existing shared language.
+        $language = is_array($payload['language'] ?? null) ? $payload['language'] : [];
+        $normalized = $validation['normalized'];
+        $normalized['language'] = [
+            ...(is_array($normalized['language'] ?? null) ? $normalized['language'] : []),
+            'stated' => array_values(array_intersect(CapellSiteSpecLanguageData::ATTRIBUTES, array_keys($language))),
+        ];
+
+        return CapellSiteSpecData::from($normalized);
     }
 }

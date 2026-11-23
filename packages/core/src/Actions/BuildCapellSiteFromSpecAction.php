@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Data\SiteSpec\CapellSiteSpecLanguageData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Events\SiteSpecPrivacyRepairing;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
@@ -249,7 +250,7 @@ final class BuildCapellSiteFromSpecAction
         $language = Language::query()->where('code', $spec->language->code)->first();
 
         if ($language instanceof Language) {
-            foreach (Arr::only($spec->language->toArray(), ['name', 'locale', 'flag', 'default']) as $field => $value) {
+            foreach ($spec->language->statedAttributes() as $field => $value) {
                 if ($language->getAttribute($field) !== $value) {
                     $differences[] = sprintf('language [%s] %s: %s -> %s', $spec->language->code, $field, var_export($language->getAttribute($field), true), var_export($value, true));
                 }
@@ -271,11 +272,15 @@ final class BuildCapellSiteFromSpecAction
 
     private function resolveLanguage(CapellSiteSpecData $spec): Language
     {
-        $language = Language::query()->where('code', $spec->language->code)->first()
+        $existing = Language::query()->where('code', $spec->language->code)->first();
+        $language = $existing
             ?? CreateDefaultLanguagesAction::run([$spec->language->code])->first()
             ?? throw new RuntimeException(sprintf('Language [%s] could not be resolved.', $spec->language->code));
 
-        $language->forceFill(Arr::only($spec->language->toArray(), ['name', 'locale', 'flag', 'default']))->save();
+        // An existing shared row only takes what the author wrote; a row created now takes every attribute.
+        $language->forceFill($existing instanceof Language
+            ? $spec->language->statedAttributes()
+            : Arr::only($spec->language->toArray(), CapellSiteSpecLanguageData::ATTRIBUTES))->save();
 
         return $language->refresh();
     }

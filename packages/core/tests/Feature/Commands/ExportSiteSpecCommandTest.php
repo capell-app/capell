@@ -9,7 +9,6 @@ use Capell\Core\Actions\PlanSiteSpecAction;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Data\SiteSpec\SiteSpecPlanItemData;
 use Capell\Core\Enums\SiteSpecPlanAction;
-use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Translation;
@@ -22,9 +21,6 @@ use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
     CreateDefaultLanguagesAction::run(['en']);
-    // An import no longer rewrites a language that differs from its spec; the seeded
-    // English default uses the flag "gb-eng" where these specs ask for "gb".
-    Language::query()->where('code', 'en')->update(['flag' => 'gb']);
     Queue::fake();
     $this->exportDirectory = sys_get_temp_dir() . '/capell-site-spec-export-' . bin2hex(random_bytes(6));
     mkdir($this->exportDirectory);
