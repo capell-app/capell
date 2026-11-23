@@ -33,7 +33,7 @@ final class DashboardSettingsSchema implements HasSchema
     #[Override]
     public static function make(Schema $schema): array
     {
-        SyncDashboardFilamentWidgetSettingsAction::run();
+        SyncDashboardFilamentWidgetSettingsAction::run(persist: false);
 
         $contributed = self::allContributedKeys(DashboardEnum::Main);
 
