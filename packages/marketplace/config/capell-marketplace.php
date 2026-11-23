@@ -83,6 +83,20 @@ return [
      * security advisories as old as the last visit. Daily rather than hourly:
      * the answer changes when a publisher releases, not when this site asks.
      */
+    /*
+     * Site licence activation for Capell Pro and paid Marketplace packages. Set the key from your account's
+     * purchase card; several keys may be comma-separated. Once a day the site sends its domain and each key, and
+     * nothing else, to learn whether it holds a place on the licence. The answer only decides whether admins see a
+     * licence notice: it never disables a package or changes public pages. Local and staging hosts send nothing.
+     */
+    'licence' => [
+        'keys' => array_values(array_filter(array_map(
+            trim(...),
+            explode(',', (string) env('CAPELL_LICENCE_KEY', '')),
+        ))),
+        'scheduled' => env('CAPELL_LICENCE_CHECK_SCHEDULED', true),
+        'at' => env('CAPELL_LICENCE_CHECK_AT', '03:10'),
+    ],
     'heartbeat' => [
         'scheduled' => env('CAPELL_MARKETPLACE_HEARTBEAT_SCHEDULED', true),
         'at' => env('CAPELL_MARKETPLACE_HEARTBEAT_AT', '02:40'),

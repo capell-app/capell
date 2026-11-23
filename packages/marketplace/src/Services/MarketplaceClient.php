@@ -111,6 +111,21 @@ final class MarketplaceClient
         ));
     }
 
+    /**
+     * Activates this site on a licence. The request carries the site's domain and its licence key and nothing else;
+     * the licence terms name exactly these two values.
+     *
+     * @return array<string, mixed>
+     */
+    public function activateSiteLicence(string $domain, string $licenceKey): array
+    {
+        return $this->postJsonData(
+            '/site-licences/activate',
+            ['domain' => $domain, 'key' => $licenceKey],
+            'The marketplace licence check did not include the expected data payload.',
+        );
+    }
+
     /** @param array<string, mixed> $payload */
     public function heartbeat(array $payload): HeartbeatResultData
     {

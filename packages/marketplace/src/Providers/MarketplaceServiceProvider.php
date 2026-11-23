@@ -12,6 +12,7 @@ use Capell\Core\Support\Packages\AbstractPackageServiceProvider;
 use Capell\Marketplace\Actions\BuildMarketplaceInstallOperationsSummaryAction;
 use Capell\Marketplace\Actions\RecordFirstDoctorPassAction;
 use Capell\Marketplace\Bridges\MarketplaceAdminBridge;
+use Capell\Marketplace\Console\Commands\CheckSiteLicenceCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceAutoUpdateCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceDoctorCommand;
 use Capell\Marketplace\Console\Commands\MarketplaceExtensionsLifecycleQaCommand;
@@ -53,6 +54,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             ->hasCommand(MarketplaceAutoUpdateCommand::class)
             ->hasCommand(MarketplaceDoctorCommand::class)
             ->hasCommand(MarketplaceHeartbeatCommand::class)
+            ->hasCommand(CheckSiteLicenceCommand::class)
             ->hasCommand(MarketplaceResumeDeployedOperationsCommand::class)
             ->hasCommand(MarketplaceExtensionsLifecycleQaCommand::class)
             ->hasRoutes(['marketplace', 'domain-proof'])
@@ -128,6 +130,7 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
 
         $this->scheduleWorkerHeartbeatProbe();
         $this->scheduleMarketplaceHeartbeat();
+        $this->scheduleSiteLicenceCheck();
         $this->scheduleAutomaticUpdates();
         $this->scheduleDeployedOperationResume();
 
@@ -138,6 +141,23 @@ class MarketplaceServiceProvider extends AbstractPackageServiceProvider
             'namespace' => 'capell-marketplace',
             'classNamespace' => 'Capell\\Marketplace\\Filament\\Livewire',
         ]);
+    }
+
+    /** The once-a-day licence check the licence terms describe; onOneServer() so a cluster sends it once. */
+    private function scheduleSiteLicenceCheck(): void
+    {
+        if (! (bool) config('capell-marketplace.licence.scheduled', true)) {
+            return;
+        }
+
+        $at = (string) config('capell-marketplace.licence.at', '03:10');
+
+        $this->callAfterResolving(Schedule::class, static function (Schedule $schedule) use ($at): void {
+            $schedule->command('capell:licence:check')
+                ->dailyAt($at)
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
     }
 
     /**
