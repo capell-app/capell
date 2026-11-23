@@ -6,6 +6,7 @@ namespace Capell\Core\Actions\Sites;
 
 use Capell\Core\Contracts\Privacy\RetainsSiteRecords;
 use Capell\Core\Models\Site;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -13,6 +14,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class FindRetainedSiteRecordsAction
 {
+    use AsFake;
     use AsObject;
 
     /** @return array<string, int> */

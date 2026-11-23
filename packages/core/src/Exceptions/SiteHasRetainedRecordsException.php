@@ -18,6 +18,6 @@ final class SiteHasRetainedRecordsException extends RuntimeException
             $retained,
         ));
 
-        return new self((string) __('capell::message.site_has_retained_records', ['records' => $kinds]));
+        return new self((string) __('capell-core::message.site_has_retained_records', ['records' => $kinds]));
     }
 }
