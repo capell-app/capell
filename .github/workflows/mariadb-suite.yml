@@ -58,8 +58,11 @@ jobs:
           extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_mysql, pdo_sqlite, simplexml, sqlite3, zip
           tools: composer:v2
           coverage: none
+      # The same two steps as the release smoke's product gates, which run tests after them.
       - name: Install PHP dependencies
-        run: composer install --no-interaction --no-progress --prefer-dist
+        run: composer install --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+      - name: Prepare the PHP autoloader
+        run: composer dump-autoload --no-interaction
       - name: Run the MariaDB proofs
         env:
           # The lock proofs use the default connection through the mysql driver, as production
