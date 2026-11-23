@@ -7,6 +7,7 @@ namespace Capell\Admin\Actions\Dashboard;
 use Capell\Admin\Contracts\Dashboard\DashboardActivityContributor;
 use Capell\Admin\Contracts\DashboardReports\ActivityTrailQueryProvider;
 use Capell\Admin\Data\Dashboard\DashboardActivityItemData;
+use Capell\Admin\Support\Activity\ActivityPageAccess;
 use Capell\Admin\Support\Dashboard\DashboardSiteEvaluator;
 use Capell\Core\Actions\GetEditPageResourceUrlAction;
 use Capell\Core\Models\Page;
@@ -54,7 +55,7 @@ final class BuildWorkFirstActivityAction
             return [];
         }
 
-        $query = SiteAccess::forActor($actor)->scope(resolve(ActivityTrailQueryProvider::class)->build())
+        $query = resolve(ActivityPageAccess::class)->scope(SiteAccess::forActor($actor)->scope(resolve(ActivityTrailQueryProvider::class)->build()), $actor)
             ->whereNotNull('causer_id')
             ->whereIn('event', ['created', 'updated', 'deleted'])
             ->whereHasMorph('subject', [Page::class, Translation::class], function (Builder $query, string $type) use ($actor, $siteId, $language): void {

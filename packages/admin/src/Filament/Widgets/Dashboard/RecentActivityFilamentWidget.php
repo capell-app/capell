@@ -11,6 +11,7 @@ use Capell\Admin\Data\Activity\ActivityChangeSetData;
 use Capell\Admin\Enums\ResourceEnum;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
 use Capell\Admin\Filament\Resources\Activities\Tables\ActivitiesTable;
+use Capell\Admin\Support\Activity\ActivityPageAccess;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Translation;
@@ -94,7 +95,7 @@ final class RecentActivityFilamentWidget extends BaseWidget implements CapellFil
 
     private static function hasActivity(): bool
     {
-        return SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
+        return resolve(ActivityPageAccess::class)->scope(SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build()))
             ->exists();
     }
 
@@ -244,7 +245,7 @@ final class RecentActivityFilamentWidget extends BaseWidget implements CapellFil
      */
     private function activityQuery(): Builder
     {
-        return SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build())
+        return resolve(ActivityPageAccess::class)->scope(SiteAccess::current()->scope(resolve(ActivityTrailQueryProvider::class)->build()))
             ->with([
                 'causer',
                 'subject' => function (Relation $subject): void {

@@ -8,6 +8,7 @@ use Capell\Admin\Data\Activity\ActivityChangedFieldData;
 use Capell\Admin\Data\Activity\ActivityRevertResultData;
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
 use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Support\Activity\ActivityPageAccess;
 use Capell\Admin\Support\Activity\ActivityRevertHandlerResolver;
 use Capell\Core\Support\Activity\ActivityLogCompat;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -31,7 +32,7 @@ final class RevertActivityAction
     {
         $selectedPaths = $selectedPaths === null ? null : $this->normalizedSelectedPaths($selectedPaths);
 
-        if (! $this->actorCanRevert() || ! SiteAccess::current()->canUseRecord($activity)) {
+        if (! $this->actorCanRevert() || ! SiteAccess::current()->canUseRecord($activity) || ! resolve(ActivityPageAccess::class)->canUpdate($activity)) {
             return ActivityRevertResultData::failed(
                 messageKey: 'capell-admin::activity.revert_unauthorized',
                 skippedFields: ['unauthorized' => $selectedPaths ?? $this->oldValuePaths($activity)],

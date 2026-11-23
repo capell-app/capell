@@ -106,7 +106,7 @@ it('scopes default activity listing and workspace badge and recent widget by sub
     activity()->performedOn($beta)->withProperties(['workspace_id' => 7])->log('beta secret');
     activity()->performedOn($beta->translations->first())->log('beta translation secret');
     activity()->log('unattributed');
-    test()->actingAs($this->actor);
+    reviewActorWithPermissions($this->actor, ['View:Page']);
     expect((new NullActivityTrailQueryProvider)->build()->orderBy('id')->pluck('id')->all())->toBe([$own->id, $ownTranslation->id, $ownMediaTranslation->id, $shared->id]);
     expect(ActivityResource::getNavigationBadge())->toBe('1');
 
