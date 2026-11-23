@@ -20,6 +20,28 @@ it('keeps the combined role and the Doctor command bootable without the bootstra
     'doctor can inspect a misconfigured node' => ['public', 'unbootstrapped-doctor'],
 ]);
 
+it('refuses a split role whose cache path is pinned by the process environment', function (string $role, string $variable): void {
+    $result = runRuntimeRoleEnforcementFixture($role, 'bootstrapped', [$variable => '/shared/cache/pinned.php']);
+
+    expect($result['exception'] ?? null)->toBe(RuntimeRoleMisconfiguredException::class)
+        ->and($result['error'])
+        ->toContain($variable, '/shared/cache/pinned.php', '/capell-runtime/' . $role . '/', 'Unset ' . $variable);
+})->with([
+    'public config cache' => ['public', 'APP_CONFIG_CACHE'],
+    'public routes cache' => ['public', 'APP_ROUTES_CACHE'],
+    'authoring services cache' => ['authoring', 'APP_SERVICES_CACHE'],
+    'authoring events cache' => ['authoring', 'APP_EVENTS_CACHE'],
+    'public packages cache' => ['public', 'APP_PACKAGES_CACHE'],
+]);
+
+it('keeps the documented per-command cache override working for the combined role', function (): void {
+    $result = runRuntimeRoleEnforcementFixture('combined', 'bootstrapped', ['APP_CONFIG_CACHE' => '/tmp/no-config.php']);
+
+    // The fixture's ordering provider asserts role paths, so the override surfaces as its own
+    // error; the point is that Capell does not refuse it the way it refuses a split role.
+    expect($result['exception'] ?? null)->not->toBe(RuntimeRoleMisconfiguredException::class);
+});
+
 /**
  * @param  array<string, string>  $environment
  * @return array<string, mixed>

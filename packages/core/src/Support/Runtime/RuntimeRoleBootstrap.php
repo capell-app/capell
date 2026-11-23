@@ -134,11 +134,11 @@ final class RuntimeRoleBootstrap
 
     private static function configureRoleCachePaths(RuntimeRoleCachePaths $paths, RuntimeRole $role): void
     {
-        self::setRoleCachePath('APP_CONFIG_CACHE', $paths->config($role));
-        self::setRoleCachePath('APP_PACKAGES_CACHE', $paths->packages($role));
-        self::setRoleCachePath('APP_SERVICES_CACHE', $paths->services($role));
-        self::setRoleCachePath('APP_ROUTES_CACHE', $paths->routes($role));
-        self::setRoleCachePath('APP_EVENTS_CACHE', $paths->events($role));
+        self::setRoleCachePath($role, 'APP_CONFIG_CACHE', $paths->config($role));
+        self::setRoleCachePath($role, 'APP_PACKAGES_CACHE', $paths->packages($role));
+        self::setRoleCachePath($role, 'APP_SERVICES_CACHE', $paths->services($role));
+        self::setRoleCachePath($role, 'APP_ROUTES_CACHE', $paths->routes($role));
+        self::setRoleCachePath($role, 'APP_EVENTS_CACHE', $paths->events($role));
     }
 
     private static function configureLaravelPackageManifest(
@@ -231,9 +231,24 @@ final class RuntimeRoleBootstrap
             : [];
     }
 
-    private static function setRoleCachePath(string $key, string $path): void
+    private static function setRoleCachePath(RuntimeRole $role, string $key, string $path): void
     {
         Env::getRepository()->set($key, $path);
+
+        // The environment repository is immutable: a variable defined by the real process
+        // environment silently refuses the write, leaving the node on a shared cache. Combined
+        // keeps the documented per-command override (for example APP_CONFIG_CACHE pointing at
+        // a missing file); a split role must be isolated, so a different value is refused.
+        $effective = Env::get($key);
+
+        if ($role !== RuntimeRole::Combined && $effective !== $path) {
+            throw RuntimeRoleMisconfiguredException::cachePathOverridden(
+                $role,
+                $key,
+                is_string($effective) ? $effective : get_debug_type($effective),
+                $path,
+            );
+        }
     }
 
     private static function isRepairCommand(ApplicationContract $application): bool

@@ -47,7 +47,7 @@ for role in combined public authoring; do
 done
 ```
 
-`capell:package-cache` generates the filtered Laravel package, bootstrap-provider, and service manifests for all three roles. Laravel config, package, service, route, and event caches live below `bootstrap/cache/capell-runtime/<role>/`; they are never shared between public and authoring processes.
+`capell:package-cache` generates the filtered Laravel package, bootstrap-provider, and service manifests for all three roles. Laravel config, package, service, route, and event caches live below `bootstrap/cache/capell-runtime/<role>/`; they are never shared between public and authoring processes. A `public` or `authoring` process refuses to boot when `APP_CONFIG_CACHE`, `APP_PACKAGES_CACHE`, `APP_SERVICES_CACHE`, `APP_ROUTES_CACHE` or `APP_EVENTS_CACHE` is already set in its real process environment to a different path, because Capell cannot override it and the node would read another role's cache. Unset the variable for that process or set it to the role path the error prints.
 
 Deploy the same code and locked dependencies to each node, then set only that process group’s role:
 

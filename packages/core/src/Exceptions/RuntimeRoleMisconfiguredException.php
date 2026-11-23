@@ -24,4 +24,16 @@ final class RuntimeRoleMisconfiguredException extends RuntimeException
             $role->value,
         ));
     }
+
+    public static function cachePathOverridden(RuntimeRole $role, string $variable, string $actual, string $expected): self
+    {
+        return new self(sprintf(
+            '%1$s is already defined in the process environment as [%2$s], so the [%3$s] runtime role cannot isolate its cache and would read a cache built for another role. '
+            . 'Unset %1$s for this process, or set it to the role path [%4$s].',
+            $variable,
+            $actual,
+            $role->value,
+            $expected,
+        ));
+    }
 }
