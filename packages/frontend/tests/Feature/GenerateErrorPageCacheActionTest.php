@@ -26,6 +26,7 @@ use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Tests\Support\FencesTestArtefactStore;
 use Capell\Frontend\Tests\Support\RecordingStaticErrorPageStore;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -150,6 +151,65 @@ it('generates static error html per status and updates the manifests', function 
         ->and($branding['copy'])->toHaveKey('500')
         ->and($fallback['hosts'])->toBeEmpty()
         ->and($fallback['default']['copy'])->toBeEmpty();
+});
+
+it('builds static error pages and branding for the site domain, not the administrator request that triggered them', function (): void {
+    $store = new class implements StaticErrorPageStore
+    {
+        use FencesTestArtefactStore;
+
+        public function exists(string $file): bool
+        {
+            return false;
+        }
+
+        public function path(string $file): ?string
+        {
+            return null;
+        }
+
+        public function put(PublicArtefactPermit $permit, string $file, string $contents): void {}
+    };
+
+    $renderer = new class implements ThemePreviewRendererInterface
+    {
+        /** @var list<string> */
+        public array $assetUrls = [];
+
+        public function render(Theme $theme, Site $site, Page $page, ?Language $language = null, ?SiteDomain $siteDomain = null): Response
+        {
+            $this->assetUrls[] = asset('build/app.css') . '|' . url('/');
+
+            return new Response('<h1>Error</h1>');
+        }
+    };
+
+    app()->instance(StaticErrorPageStore::class, $store);
+    app()->instance(ThemePreviewRendererInterface::class, $renderer);
+    RegenerateSiteErrorPagesAction::allowToRun();
+
+    $language = Language::factory()->english()->create();
+    $siteDomain = SiteDomain::factory()
+        ->state(['scheme' => 'https', 'domain' => 'www.example.test', 'path' => '/', 'language_id' => $language->id])
+        ->create();
+
+    $adminRequest = Request::create('https://admin.internal.test/admin/pages');
+    app()->instance('request', $adminRequest);
+
+    GenerateErrorPageCacheAction::run($siteDomain->site);
+
+    expect($renderer->assetUrls)->not->toBeEmpty();
+
+    foreach ($renderer->assetUrls as $urls) {
+        expect($urls)->toContain('https://www.example.test/build/app.css')
+            ->and($urls)->not->toContain('admin.internal.test');
+    }
+
+    $branding = resolve(ErrorPageFallbackManifestStore::class)->read()['sites'][(string) $siteDomain->site_id]['domains'][0];
+
+    expect($branding['logo_url'])->toStartWith('https://www.example.test/')
+        ->and(request())->toBe($adminRequest)
+        ->and(url('/'))->toStartWith('https://admin.internal.test');
 });
 
 it('rejects and does not store error page html that fails the public render contract', function (): void {

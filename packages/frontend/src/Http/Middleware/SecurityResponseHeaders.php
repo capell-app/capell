@@ -18,12 +18,15 @@ class SecurityResponseHeaders
             return $response;
         }
 
-        $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
-        $response->headers->set('Content-Security-Policy', "frame-ancestors 'self'");
-        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
-        $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
+        // Only what the response does not already carry, so a host application (or a route,
+        // or an inner middleware) that sends its own value keeps it and nothing is duplicated.
+        // No Content-Security-Policy is sent: X-Frame-Options covers framing, and an enforced
+        // policy is the host's decision.
+        $this->setIfMissing($response, 'X-Content-Type-Options', 'nosniff');
+        $this->setIfMissing($response, 'X-Frame-Options', 'SAMEORIGIN');
+        $this->setIfMissing($response, 'Referrer-Policy', 'strict-origin-when-cross-origin');
+        $this->setIfMissing($response, 'Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+        $this->setIfMissing($response, 'X-Permitted-Cross-Domain-Policies', 'none');
 
         $hsts = config('security.headers.hsts', []);
 
@@ -39,9 +42,16 @@ class SecurityResponseHeaders
                 $header .= '; preload';
             }
 
-            $response->headers->set('Strict-Transport-Security', $header);
+            $this->setIfMissing($response, 'Strict-Transport-Security', $header);
         }
 
         return $response;
+    }
+
+    private function setIfMissing(Response $response, string $name, string $value): void
+    {
+        if (! $response->headers->has($name)) {
+            $response->headers->set($name, $value);
+        }
     }
 }

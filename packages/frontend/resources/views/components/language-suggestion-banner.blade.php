@@ -192,6 +192,26 @@
                 return null;
             }
 
+            // The origin cookie is JavaScript-readable, so any script or sibling
+            // subdomain can plant a value in it. Only a same-origin http(s) URL
+            // may become the "go back" link; anything else (javascript:, data:,
+            // another host) is refused and the notice stays hidden.
+            // capell-same-origin-url:start
+            function sameOriginUrl(value) {
+                try {
+                    var url = new URL(String(value), window.location.href);
+
+                    if ((url.protocol === 'http:' || url.protocol === 'https:') && url.origin === window.location.origin) {
+                        return url.href;
+                    }
+                } catch (error) {
+                    /* Unparseable: refused below. */
+                }
+
+                return null;
+            }
+            // capell-same-origin-url:end
+
             function clearCookie(name) {
                 document.cookie = name + '=; Max-Age=0; Path=/; SameSite=Lax';
             }
@@ -306,7 +326,7 @@
                         }
                     }
 
-                    reveal(variant, revert, originUrl);
+                    reveal(variant, revert, sameOriginUrl(originUrl));
 
                     return;
                 }
