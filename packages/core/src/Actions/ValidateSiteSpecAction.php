@@ -44,6 +44,7 @@ final class ValidateSiteSpecAction
                 }
 
                 $this->validatePageReferences($validator, $payload);
+                $this->validatePageMeta($validator, $payload);
                 $this->validateMediaSource($validator, $payload);
                 $this->validatePackageData($validator, $payload);
             });
@@ -110,6 +111,7 @@ final class ValidateSiteSpecAction
             'pages.*.sections.*.meta' => ['sometimes', 'array'],
             'pages.*.visibility' => ['sometimes', 'array'],
             'pages.*.meta' => ['sometimes', 'array'],
+            'pages.*.meta.slug' => ['sometimes', 'string', CapellSiteSpecConstraints::validationRegex(CapellSiteSpecConstraints::STORED_SLUG_PATTERN)],
             'pages.*.properties' => ['sometimes', 'array', 'max:' . CapellSiteSpecConstraints::MAX_PAGE_PROPERTIES],
             'pages.*.properties.*' => [$this->propertyValueLength()],
             'pages.*.properties.*.value' => [$this->propertyValueLength()],
@@ -196,6 +198,47 @@ final class ValidateSiteSpecAction
                 );
             }
         }
+    }
+
+    /**
+     * Page `meta` is free-form, but the keys the importer and page creator treat as authoritative have
+     * validated fields of their own and may not be set, or overridden, through it.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function validatePageMeta(LaravelValidator $validator, array $payload): void
+    {
+        $pages = $payload['pages'] ?? [];
+
+        if (! is_array($pages)) {
+            return;
+        }
+
+        foreach ($pages as $index => $page) {
+            $meta = is_array($page) ? ($page['meta'] ?? null) : null;
+
+            if (! is_array($meta)) {
+                continue;
+            }
+
+            foreach (CapellSiteSpecConstraints::RESERVED_PAGE_META_KEYS as $key) {
+                if (array_key_exists($key, $meta)) {
+                    $validator->errors()->add(
+                        sprintf('pages.%s.meta.%s', $index, $key),
+                        sprintf('The page meta key [%s] has its own field; use %s instead.', $key, $this->fieldFor($key, $index)),
+                    );
+                }
+            }
+        }
+    }
+
+    private function fieldFor(string $metaKey, int|string $pageIndex): string
+    {
+        return match ($metaKey) {
+            'visibility' => sprintf('pages.%s.visibility', $pageIndex),
+            'image_id' => 'media.images',
+            default => 'initialVisibility (it sets the page indexing for the whole import)',
+        };
     }
 
     /** @param array<string, mixed> $payload */

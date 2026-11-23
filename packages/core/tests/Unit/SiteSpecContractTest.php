@@ -210,3 +210,46 @@ it('sanitises section html through the rich text profile, dropping inline styles
         ->not->toContain('javascript:')
         ->not->toContain('<iframe');
 });
+
+it('rejects page meta keys that have their own validated field, naming the field to use', function (string $key, string $field): void {
+    $payload = validSiteSpecPayload();
+    $payload['pages'][0]['meta'] = [$key => 'x', 'custom' => 'kept'];
+
+    $result = ValidateSiteSpecAction::run($payload, [], [], []);
+
+    expect($result['valid'])->toBeFalse()
+        ->and($result['errors'])->toHaveKey('pages.0.meta.' . $key)
+        ->and($result['errors']['pages.0.meta.' . $key][0])->toContain($field)
+        ->and($result['errors'])->not->toHaveKey('pages.0.meta.custom');
+})->with([
+    'robots' => ['robots', 'initialVisibility'],
+    'noindex' => ['noindex', 'initialVisibility'],
+    'visibility' => ['visibility', 'pages.0.visibility'],
+    'image_id' => ['image_id', 'media.images'],
+]);
+
+it('validates a page meta slug with the same rule as the page slug', function (): void {
+    $invalid = validSiteSpecPayload();
+    $invalid['pages'][0]['meta'] = ['slug' => '../admin'];
+    $valid = validSiteSpecPayload();
+    $valid['pages'][0]['meta'] = ['slug' => 'our-story'];
+    $home = validSiteSpecPayload();
+    $home['pages'][0]['meta'] = ['slug' => '/'];
+
+    expect(ValidateSiteSpecAction::run($invalid, [], [], [])['errors'])->toHaveKey('pages.0.meta.slug')
+        ->and(ValidateSiteSpecAction::run($valid, [], [], [])['valid'])->toBeTrue()
+        ->and(ValidateSiteSpecAction::run($home, [], [], [])['valid'])->toBeTrue();
+});
+
+it('still accepts page meta that no field covers', function (): void {
+    $payload = validSiteSpecPayload();
+    $payload['pages'][0]['meta'] = ['custom' => 'kept', 'title' => 'SEO title'];
+
+    expect(ValidateSiteSpecAction::run($payload, [], [], [])['valid'])->toBeTrue();
+});
+
+it('publishes the reserved page meta keys in the JSON schema', function (): void {
+    $meta = CapellSiteSpecSchema::toArray()['properties']['pages']['items']['properties']['meta'];
+
+    expect($meta['propertyNames']['not']['enum'])->toBe(CapellSiteSpecConstraints::RESERVED_PAGE_META_KEYS);
+});
