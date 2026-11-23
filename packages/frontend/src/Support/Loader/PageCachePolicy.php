@@ -11,31 +11,53 @@ use Illuminate\Database\Eloquent\Model;
 
 class PageCachePolicy
 {
+    /**
+     * A page may be stored and served to other visitors only when its type is
+     * known and allows it. A page with no readable type is not cached.
+     */
     public static function shouldCache(?Pageable $page): bool
     {
-        if (! $page instanceof Pageable) {
+        if (! $page instanceof Model) {
             return false;
         }
 
-        if (! $page instanceof Model || ! $page->relationLoaded('blueprint')) {
-            return false;
-        }
+        $blueprint = self::blueprint($page);
 
-        return ! self::neverCached($page);
+        return $blueprint instanceof Blueprint && $blueprint->cache_time !== CacheTime::Never;
     }
 
     /**
      * A page type set to never be cached renders visitor-specific output, so nothing
-     * built for one request may be stored for, or reused by, another.
+     * built for one request may be stored for, or reused by, another. A page that
+     * names a type which cannot be read gives no answer, and is treated the same way.
      */
     public static function neverCached(mixed $page): bool
     {
-        if (! $page instanceof Model || ! $page->relationLoaded('blueprint')) {
+        if (! $page instanceof Model) {
             return false;
         }
 
-        $blueprint = $page->getRelation('blueprint');
+        $blueprint = self::blueprint($page);
 
-        return $blueprint instanceof Blueprint && $blueprint->cache_time === CacheTime::Never;
+        if ($blueprint instanceof Blueprint) {
+            return $blueprint->cache_time === CacheTime::Never;
+        }
+
+        return $page->getAttribute('blueprint_id') !== null;
+    }
+
+    /**
+     * The decision must not depend on whether a caller remembered to load the type
+     * with the page, so a missing relation is loaded here, once, by its key.
+     */
+    private static function blueprint(Model $page): ?Blueprint
+    {
+        if (! $page->relationLoaded('blueprint') && $page->isRelation('blueprint')) {
+            $page->loadMissing('blueprint');
+        }
+
+        $blueprint = $page->relationLoaded('blueprint') ? $page->getRelation('blueprint') : null;
+
+        return $blueprint instanceof Blueprint ? $blueprint : null;
     }
 }

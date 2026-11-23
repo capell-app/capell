@@ -174,17 +174,22 @@ it('remembers public page render data when the render data cache is enabled', fu
         ->and($calls)->toBe(1);
 });
 
-it('builds render data on every request for a page whose type is never cached', function (): void {
+it('builds render data on every request for a page whose type is never cached', function (bool $typeLoaded): void {
     config()->set('cache.default', 'array');
     config()->set('capell-frontend.public_render_data_cache', true);
 
     $type = Blueprint::factory()->page()->meta(['cache_time' => CacheTime::Never->value])->createOne();
-    $page = Page::factory()
+    $page = Page::query()->with('translations')->whereKey(Page::factory()
         ->type($type)
         ->withTranslations()
         ->createOne()
-        ->load('blueprint');
-    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+        ->getKey())->sole();
+    if ($typeLoaded) {
+        $page->load('blueprint');
+    }
+
+    expect($page->relationLoaded('blueprint'))->toBe($typeLoaded);
+    $language = Language::query()->findOrFail((int) $page->translations->firstOrFail()->language_id);
     $site = Site::query()->findOrFail((int) $page->site_id);
     $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
     $context = new FrontendRenderContextData(
@@ -211,7 +216,7 @@ it('builds render data on every request for a page whose type is never cached', 
     expect($cache->remember($context, $builder)->surrogateKeys)->toBe(['first visitor'])
         ->and($cache->remember($context, $builder)->surrogateKeys)->toBe(['second visitor'])
         ->and($cache->keyForContext($context))->toBeNull();
-});
+})->with(['type loaded with the page' => true, 'type not loaded with the page' => false]);
 
 it('does not rebuild contributor values on a warm cache hit', function (): void {
     config()->set('cache.default', 'array');

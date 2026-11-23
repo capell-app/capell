@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Support\Assets;
 
 use Capell\Core\Data\Rendering\FrontendResourceContextData;
+use Capell\Core\Enums\CacheTime;
 use Capell\Core\Enums\Rendering\FrontendResourceKind;
 use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Data\Assets\FrontendResourceActivationPlanData;
@@ -16,7 +17,6 @@ use Capell\Frontend\Enums\CrossOrigin;
 use Capell\Frontend\Enums\FetchPriority;
 use Capell\Frontend\Enums\FrontendResourceHintAs;
 use Capell\Frontend\Enums\ReferrerPolicy;
-use Capell\Frontend\Support\Loader\PageCachePolicy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Vite;
 
@@ -87,7 +87,7 @@ final class DefaultFrontendResourcePlanRenderer implements FrontendResourcePlanR
             return true;
         }
 
-        return PageCachePolicy::neverCached($page);
+        return $page->relationLoaded('blueprint') && $page->blueprint?->cache_time === CacheTime::Never;
     }
 
     private function inlineContent(ResolvedFrontendResourceData $resource): ?string
