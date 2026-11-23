@@ -52,6 +52,7 @@ it('reserves the purchases path from the extension detail wildcard', function ()
 });
 
 it('renders heartbeat purchases and renewal links', function (): void {
+    config(['capell-marketplace.marketplace.web_url' => 'https://marketplace.example.test']);
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);

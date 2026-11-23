@@ -349,7 +349,7 @@ final class MarketplaceExtensionDetailPage extends Page
             ->success()
             ->title((string) __('capell-marketplace::marketplace.updates.queued_title'))
             ->body((string) __('capell-marketplace::marketplace.updates.queued_body', [
-                'name' => $attempt->extension_name,
+                'name' => e($attempt->extension_name),
             ]))
             ->send();
     }

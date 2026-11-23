@@ -48,7 +48,7 @@ final class NotifyMarketplaceUninstallCompletedAction
         $body = (string) __($options->deletePackage
             ? 'capell-marketplace::marketplace.uninstalls.completed_body_deleted'
             : 'capell-marketplace::marketplace.uninstalls.completed_body_retained', [
-                'name' => $attempt->extension_name,
+                'name' => e($attempt->extension_name),
             ]);
 
         if ($options->deleteData) {
@@ -61,7 +61,7 @@ final class NotifyMarketplaceUninstallCompletedAction
 
         $notification = FilamentNotification::make(MarketplaceInstallNotifications::operationId($attempt->composer_name))
             ->title((string) __('capell-marketplace::marketplace.uninstalls.completed', [
-                'name' => $attempt->extension_name,
+                'name' => e($attempt->extension_name),
             ]))
             ->body($body)
             ->success()

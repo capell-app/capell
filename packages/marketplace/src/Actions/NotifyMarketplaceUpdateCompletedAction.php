@@ -43,7 +43,7 @@ final class NotifyMarketplaceUpdateCompletedAction
         }
 
         $body = (string) __('capell-marketplace::marketplace.updates.completed_body', [
-            'name' => $attempt->extension_name,
+            'name' => e($attempt->extension_name),
             'version' => CapellCore::getInstalledPrettyVersion($attempt->composer_name)
                 ?? ($attempt->version_constraint ?: '—'),
         ]);

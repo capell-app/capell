@@ -8,6 +8,7 @@ use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
 use Capell\Marketplace\Support\MarketplaceComposerCommand;
+use Capell\Marketplace\Support\MarketplaceTrustedUrlPolicy;
 use Spatie\LaravelData\Data;
 
 final class ExtensionDetailData extends Data
@@ -96,8 +97,8 @@ final class ExtensionDetailData extends Data
             isPaid: (bool) ($payload['is_paid'] ?? false),
             productId: self::optionalString($payload['product_id'] ?? null),
             latestVersion: self::optionalString($payload['latest_version'] ?? null),
-            documentationUrl: self::optionalString($payload['documentation_url'] ?? null),
-            purchaseUrl: self::optionalString($payload['purchase_url'] ?? $payload['checkout_url'] ?? null),
+            documentationUrl: self::trustedUrl($payload['documentation_url'] ?? null),
+            purchaseUrl: self::trustedUrl($payload['purchase_url'] ?? $payload['checkout_url'] ?? null),
             imageUrl: self::marketplaceAssetUrl(self::optionalString($payload['image_url'] ?? $payload['logo_url'] ?? $payload['icon_url'] ?? null)),
             publisherName: self::optionalString($payload['publisher_name'] ?? null),
             publisherVerified: (bool) ($payload['publisher_verified'] ?? $payload['is_publisher_verified'] ?? false),
@@ -194,6 +195,16 @@ final class ExtensionDetailData extends Data
             },
             self::listOfArrays($values),
         )));
+    }
+
+    /**
+     * Links the administrator is invited to follow come from the remote response, so
+     * only an https URL on a configured Marketplace host survives; anything else is
+     * dropped and the view renders no link.
+     */
+    private static function trustedUrl(mixed $value): ?string
+    {
+        return resolve(MarketplaceTrustedUrlPolicy::class)->trusted(self::optionalString($value));
     }
 
     private static function marketplaceAssetUrl(?string $url): ?string

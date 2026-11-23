@@ -64,10 +64,10 @@ final class NotifyMarketplaceCommercialWarningsAction
     {
         $notification = Notification::make('marketplace-commercial-' . $warning->key)
             ->title((string) __('capell-marketplace::marketplace.purchases.warning.' . $warning->status . '.title', [
-                'name' => $warning->name,
+                'name' => e($warning->name),
             ]))
             ->body((string) __('capell-marketplace::marketplace.purchases.warning.' . $warning->status . '.body', [
-                'name' => $warning->name,
+                'name' => e($warning->name),
                 'date' => $warning->accessEndsAt?->translatedFormat('M j, Y'),
             ]))
             ->persistent()

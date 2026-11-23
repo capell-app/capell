@@ -7,6 +7,7 @@ namespace Capell\Marketplace\Actions;
 use Capell\Core\Actions\Marketplace\ResolveExtensionLicenceDecisionAction;
 use Capell\Core\Models\CapellExtension;
 use Capell\Marketplace\Support\MarketplaceInstanceResolver;
+use Capell\Marketplace\Support\MarketplaceTrustedUrlPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Number;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -44,8 +45,8 @@ final class BuildMarketplacePurchasesPageDataAction
             'observed_at' => is_array($snapshot) ? $instance?->last_heartbeat_at?->toAtomString() : null,
             'purchases' => $this->purchases($commercial),
             'installed' => $this->installedPaidExtensions(),
-            'renewal_url' => $this->optionalString($commercial['renewal_url'] ?? null),
-            'support_url' => $this->optionalString($commercial['support_url'] ?? null),
+            'renewal_url' => $this->trustedUrl($commercial['renewal_url'] ?? null),
+            'support_url' => $this->trustedUrl($commercial['support_url'] ?? null),
             'priority_support_price' => $this->money($commercial['priority_support_price_cents'] ?? null, $currency),
             'expired_explanation' => $this->optionalString($commercial['expired_explanation'] ?? null),
             'currency' => $currency,
@@ -132,6 +133,11 @@ final class BuildMarketplacePurchasesPageDataAction
         }
 
         return str($extension->composer_name)->after('/')->toString();
+    }
+
+    private function trustedUrl(mixed $value): ?string
+    {
+        return resolve(MarketplaceTrustedUrlPolicy::class)->trusted($this->optionalString($value));
     }
 
     private function optionalString(mixed $value): ?string
