@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Translations;
 
+use Capell\Admin\Support\Csv\CsvCell;
 use Capell\Core\Models\Contracts\Translatable;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
@@ -218,7 +219,7 @@ class ExportSiteTranslationsAction
         ?Language $defaultLanguage,
         Language $targetLanguage,
     ): array {
-        return [
+        return array_map(CsvCell::neutralise(...), [
             $translatable->getMorphClass(),
             (string) $translatable->getKey(),
             $this->label($translatable),
@@ -231,7 +232,7 @@ class ExportSiteTranslationsAction
             $this->raw($target, 'title'),
             $this->raw($target, 'content'),
             $this->raw($target, 'meta'),
-        ];
+        ]);
     }
 
     private function label(Model $translatable): string

@@ -141,3 +141,25 @@ it('scopes the export to the requested site', function (): void {
         ->toContain($ownPage->getMorphClass() . ':' . $ownPage->id)
         ->not->toContain($otherPage->getMorphClass() . ':' . $otherPage->id);
 });
+
+it('neutralises spreadsheet formulas in exported translation cells', function (): void {
+    test()->actingAsAdmin();
+    [$site, $english, $german] = makeTwoLanguageSite();
+
+    $page = Page::factory()->createOne(['site_id' => $site->id, 'name' => '@SUM(1+1)']);
+    Translation::factory()->translatable($page)->language($english)->createOne([
+        'title' => '=HYPERLINK("https://evil.test","click")',
+        'content' => '-2+3',
+    ]);
+    Translation::factory()->translatable($page)->language($german)->createOne(['title' => 'Normaler Titel']);
+
+    $rows = readExportedCsv(ExportSiteTranslationsAction::run($site, $german));
+    $row = collect($rows)->first(fn (array $row): bool => $row[2] === "'@SUM(1+1)");
+
+    throw_unless(is_array($row), RuntimeException::class, 'Expected the formula-named record in the export.');
+
+    expect($row[5])->toBe('\'=HYPERLINK("https://evil.test","click")')
+        ->and($row[6])->toBe("'-2+3")
+        ->and($row[9])->toBe('Normaler Titel')
+        ->and($row[0])->not->toStartWith("'");
+});
