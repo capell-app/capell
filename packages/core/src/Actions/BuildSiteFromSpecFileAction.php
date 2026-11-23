@@ -14,8 +14,8 @@ final class BuildSiteFromSpecFileAction
     use AsObject;
 
     /** @param list<string> $keepPublished */
-    public function handle(string $path, bool $repairPrivate = false, array $keepPublished = [], bool $auditPrivate = false): Site
+    public function handle(string $path, bool $repairPrivate = false, array $keepPublished = [], bool $auditPrivate = false, bool $overwriteShared = false): Site
     {
-        return BuildCapellSiteFromSpecAction::run(ReadSiteSpecFileAction::run($path), $repairPrivate, $keepPublished, $auditPrivate);
+        return BuildCapellSiteFromSpecAction::run(ReadSiteSpecFileAction::run($path), $repairPrivate, $keepPublished, $auditPrivate, $overwriteShared);
     }
 }

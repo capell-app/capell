@@ -20,6 +20,8 @@ php artisan capell:site-spec-import storage/app/site-spec.json
 
 The path may be absolute or relative to the application working directory. The importer hashes the normalized contract; importing the same spec again returns the existing site instead of duplicating it.
 
+The spec's language and theme are shared by every site. An existing language or theme with the same values is reused. One whose values differ is not rewritten: the import lists each difference and stops before writing anything, and `--overwrite-shared` replaces the existing row. The install spec (`capell:install --spec`) and signed project-build manifests provision those rows over the seeded defaults, so they overwrite without the flag.
+
 ## Apply to an existing site
 
 ```bash

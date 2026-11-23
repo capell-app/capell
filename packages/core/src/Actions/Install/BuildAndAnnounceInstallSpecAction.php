@@ -24,7 +24,8 @@ final class BuildAndAnnounceInstallSpecAction
         $resolvedPath = realpath($specOption);
         $specPath = $resolvedPath === false ? $specOption : $resolvedPath;
 
-        BuildSiteFromSpecFileAction::run($specPath);
+        // A fresh install provisions the language and theme the spec names, replacing the seeded defaults.
+        BuildSiteFromSpecFileAction::run($specPath, overwriteShared: true);
         Event::dispatch(new CapellInstalled($specPath, $seededDefaults));
     }
 }

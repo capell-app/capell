@@ -10,6 +10,7 @@ use Capell\Core\Data\Publishing\PublicationTransitionRequestData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
 use Capell\Core\Enums\PublishVisibilityStateEnum;
 use Capell\Core\Events\SiteSpecPublished;
+use Capell\Core\Models\Language;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Illuminate\Foundation\Auth\User;
@@ -20,6 +21,9 @@ use Symfony\Component\Console\Command\Command;
 
 beforeEach(function (): void {
     CreateDefaultLanguagesAction::run(['en']);
+    // An import no longer rewrites a language that differs from its spec; the seeded
+    // English default uses the flag "gb-eng" where these specs ask for "gb".
+    Language::query()->where('code', 'en')->update(['flag' => 'gb']);
     Queue::fake();
 });
 
