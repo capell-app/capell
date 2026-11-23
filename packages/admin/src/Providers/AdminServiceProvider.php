@@ -1294,6 +1294,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
             }
         }
 
+        CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Overview, SiteStatsOverviewFilamentWidget::class, DashboardEnum::Main);
         CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Pulse, AnalyticsOverviewFilamentWidget::class, DashboardEnum::Main);
         CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Trends, AnalyticsTrendFilamentWidget::class, DashboardEnum::Main);
         CapellAdmin::registerDashboardPanel(DashboardRegionEnum::Insights, AnalyticsInsightsFilamentWidget::class, DashboardEnum::Main);

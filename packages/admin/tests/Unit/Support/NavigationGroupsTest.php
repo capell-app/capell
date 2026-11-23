@@ -14,13 +14,13 @@ beforeEach(function (): void {
     CapellAdmin::clearResolvedInstance(CapellAdminManager::class);
 });
 
-it('offers the fixed groups in order, keeping website and media open', function (): void {
+it('offers the fixed groups in order, keeping only website open', function (): void {
     $groups = collect(CapellAdmin::getNavigationGroups());
 
     expect($groups->map(fn (NavigationGroup $group): ?string => $group->getLabel())->all())
-        ->toBe(['Website', 'Media', 'Design', 'Marketing', 'Business', 'Reports', 'Users', 'Settings', 'Developer'])
+        ->toBe(['Website', 'Design', 'Marketing', 'Business', 'Reports', 'Users', 'Settings', 'Developer'])
         ->and($groups->map(fn (NavigationGroup $group): bool => $group->isCollapsed())->all())
-        ->toBe([false, false, true, true, true, true, true, true, true])
+        ->toBe([false, true, true, true, true, true, true, true])
         ->and($groups->every(fn (NavigationGroup $group): bool => $group->getIcon() === null))->toBeTrue();
 });
 

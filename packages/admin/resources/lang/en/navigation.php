@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 return [
     'group_website' => 'Website',
-    'group_media' => 'Media',
     'group_design' => 'Design',
     'group_business' => 'Business',
 

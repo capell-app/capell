@@ -69,7 +69,7 @@ class MediaResource extends SiteScopedResource
     #[Override]
     public static function getNavigationGroup(): string|UnitEnum|null
     {
-        return NavigationGroupEnum::Media;
+        return NavigationGroupEnum::Website;
     }
 
     #[Override]

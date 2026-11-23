@@ -15,7 +15,6 @@ use Override;
 enum NavigationGroupEnum: string implements HasLabel
 {
     case Website = 'website';
-    case Media = 'media';
     case Design = 'design';
     case Marketing = 'marketing';
     case Business = 'business';
@@ -30,7 +29,6 @@ enum NavigationGroupEnum: string implements HasLabel
         // Literal keys keep every group label visible to the translation drift check.
         return (string) match ($this) {
             self::Website => __('capell-admin::navigation.group_website'),
-            self::Media => __('capell-admin::navigation.group_media'),
             self::Design => __('capell-admin::navigation.group_design'),
             self::Marketing => __('capell-admin::navigation.group_marketing'),
             self::Business => __('capell-admin::navigation.group_business'),
@@ -48,6 +46,6 @@ enum NavigationGroupEnum: string implements HasLabel
 
     public function isCollapsedByDefault(): bool
     {
-        return ! in_array($this, [self::Website, self::Media], true);
+        return $this !== self::Website;
     }
 }

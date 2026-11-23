@@ -8,6 +8,8 @@ use Filament\Support\Contracts\HasLabel;
 
 enum DashboardRegionEnum: string implements HasLabel
 {
+    case Overview = 'overview';
+    case Setup = 'setup';
     case Pulse = 'pulse';
     case Trends = 'trends';
     case Insights = 'insights';
@@ -17,6 +19,8 @@ enum DashboardRegionEnum: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
+            self::Overview => (string) __('capell-admin::dashboard.region_overview'),
+            self::Setup => (string) __('capell-admin::dashboard.region_setup'),
             self::Pulse => (string) __('capell-admin::dashboard.region_pulse'),
             self::Trends => (string) __('capell-admin::dashboard.region_trends'),
             self::Insights => (string) __('capell-admin::dashboard.region_insights'),
