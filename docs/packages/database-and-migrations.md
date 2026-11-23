@@ -65,6 +65,8 @@ CAPELL_MARIADB_CONNECTION=mysql vendor/bin/pest --configuration=phpunit.mariadb.
 
 The same file declares the package admission lock proofs (`packages/core/tests/MariaDB/PackageAdmissionConcurrencyTest.php`), run against the same `capell_editor_race_test` database. They prove that a disable, uninstall or quarantine waits for admitted work to commit, that admission waits for an in-flight disable and then refuses, and that rolled-back work releases the lock.
 
+Hosted CI runs the whole of `phpunit.mariadb.xml` against MariaDB 10.11 in the merge queue, on `main` and nightly (`.github/workflows/mariadb-suite.yml`). When a migration adds a table, record it in both `main-default.json` and `main-mariadb-default.json` under `packages/core/tests/fixtures/table-naming/`; the ordinary suite fails while the two list different tables.
+
 ## Extension Lifecycle Ledger
 
 Composer presence makes a package available. The `capell_extensions` row controls whether it can affect runtime.
@@ -78,10 +80,10 @@ Statuses:
 
 Package install actions should mark a package `installing` before running package install commands, `enabled` only after success, and `failed` when an install command throws or exits unsuccessfully.
 
-
 ### Package admission
 
 A package's side-effect work (listeners, queued jobs, adapters) should run through `RunUnderPackageAdmissionAction::run($packageName, $work)` instead of checking `CapellCore::isPackageEnabled()`. That check reads this process's cached lifecycle, so a long-lived worker keeps acting after another process disables the package. Admission reads the `capell_extensions` row fresh with a shared lock and runs the work in the same transaction on the default connection. A disable, uninstall or quarantine updates that row, so it waits for admitted work to commit, and work admitted afterwards is refused. Missing rows, quarantined, failed, disabled and runtime-gate-blocked packages are refused, and the work does not run. The result reports `admitted`, a `reason` and the work's `value`. Writes through another connection are not covered by the lock.
+
 ## Settings Migrations
 
 Place settings migrations in `database/settings` and make them idempotent:

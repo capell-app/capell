@@ -201,6 +201,22 @@
         ],
         "foreign_keys": []
     },
+    "capell_host_load_rollups": {
+        "indexes": [
+            "capell_host_load_rollups_hour_start_index",
+            "capell_host_load_rollups_node_hour_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
+    "capell_idempotency_keys": {
+        "indexes": [
+            "capell_idempotency_keys_expires_at_index",
+            "capell_idempotency_keys_key_unique",
+            "primary"
+        ],
+        "foreign_keys": []
+    },
     "capell_inbound_webhook_events": {
         "indexes": [
             "capell_inbound_webhook_events_provider_event_unique",

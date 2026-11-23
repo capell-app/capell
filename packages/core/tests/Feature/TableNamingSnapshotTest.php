@@ -89,3 +89,11 @@ it('preserves main migration index and foreign-key names with the default table 
         DB::purge('naming_snapshot');
     }
 })->with(['default' => ['', 'main-default.json'], 'DB_PREFIX' => ['dbp_', 'main-dbprefix.json']]);
+
+// The MariaDB fixture is checked by phpunit.mariadb.xml against a real server. This keeps it from
+// falling behind in the ordinary suite: a new table must be recorded for both engines together.
+it('records every table of the default naming fixture in the MariaDB one', function (): void {
+    $tables = static fn (string $fixture): array => array_keys(json_decode((string) file_get_contents(__DIR__ . '/../fixtures/table-naming/' . $fixture), true, flags: JSON_THROW_ON_ERROR));
+
+    expect($tables('main-mariadb-default.json'))->toBe($tables('main-default.json'));
+});
