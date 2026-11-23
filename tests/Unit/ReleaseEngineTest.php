@@ -1321,6 +1321,45 @@ it('refuses to publish a plan whose maturity contradicts the declared inventory'
     expect($runner->commands)->toBeEmpty();
 });
 
+it('refuses to publish a plan whose split repository differs from the declared inventory', function (): void {
+    // A plan edited or regenerated before publish can name another repository
+    // for a package. publish() pushes the split and an immutable tag to
+    // split_repository, so the destination must be the one config/release-packages.json
+    // declares for that package, and the refusal must land before any remote work.
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $runner = new class implements CommandRunner
+    {
+        public array $commands = [];
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+
+            return ['output' => '', 'exitCode' => 0];
+        }
+    };
+
+    $plan = releaseEnginePlan($sha, $tree);
+    $root = releaseEngineRootForPlan($plan);
+    // Keep the plan internally consistent: validate() already catches a package
+    // that disagrees with its own ledger, so only the definitions on disk can
+    // expose this one.
+    $plan['packages'][0]['split_repository'] = 'someone-else/core';
+    $plan['ledger'][0]['repository'] = 'someone-else/core';
+    $plan['inventory'][0]['repository'] = 'someone-else/core';
+
+    putenv('GH_TOKEN=test-token');
+
+    expect(fn () => new ReleaseEngine($root, $runner)->publish($plan, tempnam(sys_get_temp_dir(), 'plan-')))
+        ->toThrow(
+            ReleaseException::class,
+            'Package capell-app/core would be pushed to someone-else/core but config/release-packages.json declares capell-app/core.',
+        );
+
+    expect($runner->commands)->toBeEmpty();
+});
+
 it('publishes an empty split remote without transferring obsolete package history', function (): void {
     $result = (new ProcessCommandRunner)->run([
         PHP_BINARY,
