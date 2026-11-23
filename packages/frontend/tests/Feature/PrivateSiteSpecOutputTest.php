@@ -83,7 +83,7 @@ it('excludes authored placeholder metadata from rendered cached and static publi
     SiteDomain::factory()->create(['site_id' => $site->id, 'language_id' => $site->language_id, 'scheme' => 'https', 'domain' => 'private.test']);
     $home = $site->pages()->where('name', 'Home')->firstOrFail();
     $about = $site->pages()->where('name', 'About')->firstOrFail();
-    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout']);
+    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout', 'blueprint']);
     $site->load(['translation', 'siteDomains', 'siteDomain', 'theme']);
     $context = new FrontendRenderContextData(
         page: $home,
@@ -203,7 +203,7 @@ it('requires acknowledged Core cache invalidation before certifying repair and a
     expect($legacyIds)->toContain($about->id)
         ->and($models->get(Page::class, $home->id, $site, $site->language)?->translation?->meta_description)->toContain('CONFIDENTIAL');
 
-    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout']);
+    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout', 'blueprint']);
     $site->load(['translation', 'siteDomains', 'siteDomain', 'theme']);
     $context = new FrontendRenderContextData(
         page: $home,
@@ -561,7 +561,7 @@ it('withdraws cached render data for the whole site when its spec pages are publ
     $site = BuildCapellSiteFromSpecAction::run(confidentialPrivateSiteSpec());
     SiteDomain::factory()->create(['site_id' => $site->id, 'language_id' => $site->language_id, 'scheme' => 'https', 'domain' => 'publish.test']);
     $home = $site->pages()->where('name', 'Home')->firstOrFail();
-    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout']);
+    $home->load(['translation', 'translations', 'pageUrls.siteDomain', 'layout', 'blueprint']);
 
     $site->load(['translation', 'siteDomains', 'siteDomain', 'theme']);
     $context = new FrontendRenderContextData(
