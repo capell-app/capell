@@ -1360,6 +1360,38 @@ it('refuses to publish a plan whose split repository differs from the declared i
     expect($runner->commands)->toBeEmpty();
 });
 
+it('refuses to verify a plan whose split repository differs from the declared inventory', function (): void {
+    // verify() reads the tag it is told to trust from split_repository, so a plan pointing at
+    // another repository would vouch for a release that was never published there.
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $runner = new class implements CommandRunner
+    {
+        public array $commands = [];
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+
+            return ['output' => '', 'exitCode' => 0];
+        }
+    };
+
+    $plan = releaseEnginePlan($sha, $tree);
+    $root = releaseEngineRootForPlan($plan);
+    $plan['packages'][0]['split_repository'] = 'someone-else/core';
+    $plan['ledger'][0]['repository'] = 'someone-else/core';
+    $plan['inventory'][0]['repository'] = 'someone-else/core';
+
+    expect(fn () => new ReleaseEngine($root, $runner)->verify($plan, tempnam(sys_get_temp_dir(), 'plan-')))
+        ->toThrow(
+            ReleaseException::class,
+            'Package capell-app/core would be pushed to someone-else/core but config/release-packages.json declares capell-app/core.',
+        );
+
+    expect($runner->commands)->toBeEmpty();
+});
+
 it('publishes an empty split remote without transferring obsolete package history', function (): void {
     $result = (new ProcessCommandRunner)->run([
         PHP_BINARY,
