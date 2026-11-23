@@ -29,7 +29,7 @@ use Throwable;
  *
  * @method static list<OutboundMessageSourceData> run(array<string, CapellManifestData>|null $manifests = null)
  */
-final class DiscoverOutboundMessageSourcesAction
+class DiscoverOutboundMessageSourcesAction
 {
     use AsFake;
     use AsObject;

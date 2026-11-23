@@ -15,7 +15,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  *
  * @method static string|null run(?string $class, array<string, CapellManifestData>|null $manifests = null)
  */
-final class ResolveOutboundMessageOwnerAction
+class ResolveOutboundMessageOwnerAction
 {
     use AsFake;
     use AsObject;
