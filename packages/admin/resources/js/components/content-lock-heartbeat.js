@@ -47,6 +47,8 @@ export default function capellContentLockHeartbeat(config) {
         readOnly: Boolean(config.initialConflict),
         canRequestTakeover: Boolean(config.initialConflict),
         released: false,
+        draftsCleared: false,
+        requestHookCleanup: null,
 
         init() {
             this.initialDataHash = this.dataHash()
@@ -72,7 +74,16 @@ export default function capellContentLockHeartbeat(config) {
                             )
                         }
                         succeed(forget)
-                        if (typeof fail === 'function') fail(forget)
+                        if (typeof fail === 'function')
+                            fail((failure) => {
+                                forget()
+                                // Livewire 3 reports the status here; newer
+                                // versions report it through the request hook.
+                                const status = failure?.status
+                                if (this.isSessionGoneStatus(status))
+                                    this.handleSessionGone()
+                                else if (status === 403) this.handleAccessLost()
+                            })
                         return
                     }
 
@@ -87,6 +98,21 @@ export default function capellContentLockHeartbeat(config) {
                 this.bindForm()
                 this.bindLogoutForm()
             })
+
+            if (typeof window.Livewire?.hook === 'function') {
+                // Any Livewire request answered 401 or 419 means the whole
+                // session is gone, whichever component sent it.
+                this.requestHookCleanup = window.Livewire.hook(
+                    'request',
+                    ({ fail }) => {
+                        if (typeof fail !== 'function') return
+                        fail(({ status } = {}) => {
+                            if (this.isSessionGoneStatus(status))
+                                this.handleSessionGone()
+                        })
+                    },
+                )
+            }
 
             this.heartbeat()
             this.startHeartbeat()
@@ -152,6 +178,10 @@ export default function capellContentLockHeartbeat(config) {
                     return
                 }
 
+                // Unsaved edits must not outlive the session in this browser.
+                // The server keeps its own copy of every edit made so far.
+                this.clearLocalDrafts('user')
+
                 if (this.released) {
                     return
                 }
@@ -204,8 +234,14 @@ export default function capellContentLockHeartbeat(config) {
                         return
                     }
 
+                    if (this.isSessionGoneStatus(response.status)) {
+                        this.handleSessionGone()
+
+                        return
+                    }
+
                     if (response.status === 403) {
-                        this.setPermissionBlocked()
+                        this.handleAccessLost()
 
                         return
                     }
@@ -217,6 +253,78 @@ export default function capellContentLockHeartbeat(config) {
                         this.setUnavailable()
                     }
                 })
+        },
+
+        isSessionGoneStatus(status) {
+            return status === 401 || status === 419
+        },
+
+        // The session ended: nothing this browser kept for the user may stay.
+        handleSessionGone() {
+            this.clearLocalDrafts('user')
+            this.setUnavailable()
+        },
+
+        // The user may no longer edit this page: drop what was kept for it.
+        handleAccessLost() {
+            this.clearLocalDrafts('page')
+            this.setPermissionBlocked()
+        },
+
+        // 'page' covers this page's drafts; 'user' every page editor draft
+        // kept for the signed-in user. Storage keys are
+        // capell:page-editor:<user>:<record>:<locale>[:...].
+        draftKeyPrefixes(scope) {
+            const prefixes = [this.localDraftStorageKey]
+            if (scope === 'user') {
+                const [vendor, area, user] =
+                    this.localDraftStorageKey.split(':')
+                if (vendor === 'capell' && area === 'page-editor' && user)
+                    prefixes.push(`capell:page-editor:${user}`)
+            }
+            return prefixes
+        },
+
+        clearLocalDrafts(scope) {
+            // Only a page-scoped clear (lost access) can end again.
+            if (this.draftsCleared !== 'user') this.draftsCleared = scope
+            this.localDraftGeneration++
+            if (this.localDraftTimer !== null) {
+                window.clearTimeout(this.localDraftTimer)
+                this.localDraftTimer = null
+            }
+            this.localDraft = null
+            this.localDraftAvailable = false
+            this.recoveredDraftKey = null
+            this.recoveredDraftRaw = null
+
+            if (this.localDraftStorageKey === '') return
+            const storage = this.getLocalStorage()
+            if (!storage) return
+            try {
+                const prefixes = this.draftKeyPrefixes(scope)
+                const keys = Array.from(
+                    { length: storage.length },
+                    (_, index) => storage.key(index),
+                )
+                for (const key of keys) {
+                    if (
+                        prefixes.some(
+                            (prefix) =>
+                                key === prefix || key?.startsWith(`${prefix}:`),
+                        )
+                    )
+                        storage.removeItem(key)
+                }
+            } catch {
+                this.localDraftUnavailable = true
+            }
+        },
+
+        destroy() {
+            if (typeof this.requestHookCleanup === 'function')
+                this.requestHookCleanup()
+            this.requestHookCleanup = null
         },
 
         startHeartbeat() {
@@ -258,6 +366,7 @@ export default function capellContentLockHeartbeat(config) {
         },
 
         clearHeartbeatState() {
+            if (this.draftsCleared === 'page') this.draftsCleared = false
             this.conflict = false
             this.permissionBlocked = false
             this.heartbeatUnavailable = false
@@ -361,7 +470,7 @@ export default function capellContentLockHeartbeat(config) {
         },
 
         queueLocalDraft() {
-            if (this.readOnly || this.released) {
+            if (this.readOnly || this.released || this.draftsCleared) {
                 return
             }
 
@@ -406,7 +515,8 @@ export default function capellContentLockHeartbeat(config) {
             const data = this.currentData()
             const key = this.currentDraftKey()
             const generation = this.localDraftGeneration
-            if (key === '' || !this.getLocalStorage()) return
+            if (this.draftsCleared || key === '' || !this.getLocalStorage())
+                return
             await this.withDraftLock(() => {
                 if (generation !== this.localDraftGeneration) return false
                 const storage = this.getLocalStorage()
@@ -694,6 +804,7 @@ export default function capellContentLockHeartbeat(config) {
             const storage = this.getLocalStorage()
             const data = this.currentData()
             if (
+                this.draftsCleared ||
                 storage === null ||
                 this.localDraftStorageKey === '' ||
                 data === null ||
