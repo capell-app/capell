@@ -5,8 +5,10 @@ declare(strict_types=1);
 use Capell\Core\Actions\DeleteSiteAction;
 use Capell\Core\Actions\PreviewSiteDeletionImpactAction;
 use Capell\Core\Actions\RestoreSiteAction;
+use Capell\Core\Contracts\Privacy\RetainsSiteRecords;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Events\PageSaved;
+use Capell\Core\Exceptions\SiteHasRetainedRecordsException;
 use Capell\Core\Models\DeletionBatch;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -193,4 +195,28 @@ it('checks active domain claims when restoring a legacy site without a deletion 
 
     expect(fn () => RestoreSiteAction::run($site->refresh()))->toThrow(ValidationException::class);
     expect($site->refresh()->trashed())->toBeTrue()->and($domain->fresh()->trashed())->toBeFalse();
+});
+
+it('refuses to permanently delete a site while a package holds records that must be kept', function (): void {
+    $site = Site::factory()->withTranslations()->create();
+    $retainer = new class implements RetainsSiteRecords
+    {
+        public bool $held = true;
+
+        public function retainedRecords(Site $site): array
+        {
+            return $this->held ? ['form submissions under legal hold' => 2] : [];
+        }
+    };
+    app()->instance($retainer::class, $retainer);
+    app()->tag([$retainer::class], RetainsSiteRecords::TAG);
+
+    expect(fn (): ?bool => $site->forceDelete())
+        ->toThrow(SiteHasRetainedRecordsException::class, '2 form submissions under legal hold')
+        ->and(Site::withTrashed()->find($site->getKey()))->not->toBeNull();
+
+    $retainer->held = false;
+    $site->forceDelete();
+
+    expect(Site::withTrashed()->find($site->getKey()))->toBeNull();
 });

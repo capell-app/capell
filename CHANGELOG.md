@@ -7,6 +7,8 @@ the `Update Changelog` workflow.
 
 ## Unreleased
 
+- Permanently deleting a site is refused while a package holds records that must be kept, such as form submissions under legal hold, which the database would otherwise delete with the site. Packages report such records by tagging a `Capell\Core\Contracts\Privacy\RetainsSiteRecords` implementation with `RetainsSiteRecords::TAG`. The site policy also denies `forceDelete` in that case.
+
 ### Added
 
 - Packages can catalogue every outbound message, whatever the channel, through a neutral contract: a stable source key per message class and channel (with raw mail kept as its own unattributed source), the owning package resolved from installed manifests, and discovery of the Mailable and Notification classes in installed packages before they are sent.

@@ -6,6 +6,7 @@ namespace Capell\Admin\Policies;
 
 use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
+use Capell\Core\Actions\Sites\FindRetainedSiteRecordsAction;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Permissions\PermissionTeamContext;
 use Capell\Core\Support\Permissions\SiteAccess;
@@ -125,6 +126,10 @@ class SitePolicy
 
     public function forceDelete(User $user, Site $site): bool
     {
+        if (FindRetainedSiteRecordsAction::run($site) !== []) {
+            return false;
+        }
+
         if (config('permission.teams') && ! SiteAccess::forActor($user)->can($site)) {
             return false;
         }
