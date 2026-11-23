@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
+use Capell\Marketplace\Data\ExtensionAcquisitionData;
 use Capell\Marketplace\Data\ExtensionListingData;
 use Capell\Marketplace\Data\MarketplaceInstallActorData;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
@@ -41,6 +42,35 @@ final class UpdateMarketplaceExtensionAction
         bool $dispatch = true,
         bool $awaitPublishedDeployment = true,
     ): MarketplaceInstallAttempt {
+        ['listing' => $listing, 'acquisition' => $acquisition, 'currentVersion' => $currentVersion] = $this->authorise(
+            $composerName,
+            $source->isUnattended(),
+        );
+
+        return QueueMarketplaceUpdateAttemptAction::run(
+            listing: $listing,
+            acquisition: $acquisition,
+            actor: $actor,
+            source: $source,
+            currentVersion: $currentVersion,
+            user: auth()->user(),
+            idempotencyKey: $idempotencyKey,
+            dispatch: $dispatch,
+            awaitPublishedDeployment: $awaitPublishedDeployment,
+        );
+    }
+
+    /**
+     * Establish what this site may install: that the package is installed, that
+     * a newer version exists and that the marketplace authorises it. Retrying a
+     * failed update asks again through here rather than trusting the answer
+     * the first attempt stored.
+     *
+     * @param  bool  $unattended  No operator is present, so the acquisition is pinned to one exact version.
+     * @return array{listing: ExtensionListingData, acquisition: ExtensionAcquisitionData, currentVersion: string}
+     */
+    public function authorise(string $composerName, bool $unattended = false): array
+    {
         $currentVersion = $this->installedVersions->prettyVersion($composerName);
 
         if ($currentVersion === null || $currentVersion === '') {
@@ -75,19 +105,10 @@ final class UpdateMarketplaceExtensionAction
         $acquisition = CreateExtensionUpdateAcquisitionAction::run(
             listing: $listing,
             currentVersion: $currentVersion,
+            unattended: $unattended,
         );
 
-        return QueueMarketplaceUpdateAttemptAction::run(
-            listing: $listing,
-            acquisition: $acquisition,
-            actor: $actor,
-            source: $source,
-            currentVersion: $currentVersion,
-            user: auth()->user(),
-            idempotencyKey: $idempotencyKey,
-            dispatch: $dispatch,
-            awaitPublishedDeployment: $awaitPublishedDeployment,
-        );
+        return ['listing' => $listing, 'acquisition' => $acquisition, 'currentVersion' => $currentVersion];
     }
 
     private function hasNewerVersion(string $currentVersion, ?string $latestVersion): bool

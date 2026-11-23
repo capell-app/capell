@@ -51,6 +51,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallAttemptEventLevel;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureType;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
+use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Enums\MarketplaceRuntimePropagationStatus;
 use Capell\Marketplace\Exceptions\MarketplaceHealthCheckFailedException;
@@ -792,6 +793,13 @@ abstract class AbstractMarketplaceOperationJob implements ShouldBeUnique, Should
             $previousVersion = is_string($fromVersion) && $fromVersion !== '' ? $fromVersion : null;
         } elseif ($attempt->operation === MarketplaceOperationType::Update) {
             try {
+                // Defence in depth for a queued attempt the pinning at creation
+                // did not produce (an older row, a retry, a hand-built one): an
+                // unattended update never gets a constraint Composer can widen.
+                if (MarketplaceInstallSource::tryFrom((string) ($attempt->context['install_source'] ?? ''))?->isUnattended() === true) {
+                    AssertMarketplaceUpdateConstraintAction::assertExactVersion($attempt->version_constraint ?? '');
+                }
+
                 AssertMarketplaceUpdateConstraintAction::run($attempt->composer_name, $attempt->version_constraint ?? '');
                 $previousVersion = resolve(MarketplaceInstalledPackageVersionResolver::class)->prettyVersion($attempt->composer_name);
             } catch (Throwable $throwable) {

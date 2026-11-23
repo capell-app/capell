@@ -6,9 +6,12 @@ namespace Capell\Marketplace\Actions;
 
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Support\MarketplaceComposerCoordinates;
+use Composer\Semver\Constraint\Constraint;
+use Composer\Semver\VersionParser;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use UnexpectedValueException;
 
 final class AssertMarketplaceUpdateConstraintAction
 {
@@ -38,6 +41,41 @@ final class AssertMarketplaceUpdateConstraintAction
         if ($unsafe) {
             throw ValidationException::withMessages([
                 'version_constraint' => __('capell-marketplace::marketplace.errors.strict_update_constraint'),
+            ]);
+        }
+    }
+
+    /**
+     * An unattended update installs the version that was approved and nothing
+     * else. A caret or range lets Composer resolve a later release than the one
+     * whose digest the Marketplace advertised, and nobody is there to notice.
+     *
+     * Not skippable by the `verification.strict` setting: that setting relaxes
+     * how bounded an operator-supervised constraint must be, never whether an
+     * unattended one is pinned.
+     *
+     * @param  string|null  $approvedVersion  When given, the constraint must pin this version.
+     */
+    public static function assertExactVersion(string $constraint, ?string $approvedVersion = null): void
+    {
+        $parser = new VersionParser;
+
+        try {
+            $parsed = $parser->parseConstraints($constraint);
+            $pinned = $parsed instanceof Constraint
+                && $parsed->getOperator() === '=='
+                && VersionParser::parseStability($constraint) !== 'dev'
+                && ! str_starts_with($constraint, 'dev-');
+            $matchesApproved = $approvedVersion === null
+                || (string) $parsed === (string) $parser->parseConstraints($approvedVersion);
+        } catch (UnexpectedValueException) {
+            $pinned = false;
+            $matchesApproved = false;
+        }
+
+        if (! $pinned || ! $matchesApproved) {
+            throw ValidationException::withMessages([
+                'version_constraint' => __('capell-marketplace::marketplace.errors.unattended_update_not_pinned'),
             ]);
         }
     }

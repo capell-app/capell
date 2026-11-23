@@ -22,6 +22,8 @@ return [
         'recheck' => 'Recheck cached catalogue (refresh requests are limited)',
     ],
     'errors' => [
+        'unattended_update_not_pinned' => 'Automatic updates only install the one version the Marketplace approved. This update was not pinned to that version, so it was not run. Update the extension by hand from Package Operations if you want it.',
+        'unattended_update_no_version' => 'The Marketplace did not say which version to install, so the automatic update was not run. Update the extension by hand from Package Operations if you want it.',
         'strict_update_constraint' => 'Choose a bounded release version for this update, then try again.',
         'heartbeat_connection' => 'Capell could not connect to the Marketplace at :host.',
         'heartbeat_instance_mismatch' => 'The Marketplace response did not confirm the connected instance.',
