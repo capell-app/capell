@@ -50,6 +50,12 @@ final class ResolveDefaultPackageOperationRecipientsAction
             ->values();
     }
 
+    /** Whether a user is one the default recipients would include; subscribers are held to the same rule. */
+    public function canReceive(Model $user): bool
+    {
+        return $this->isAdminRecipient($user, config('capell.roles.super_admin', 'super_admin'));
+    }
+
     private function isAdminRecipient(Model $user, mixed $role): bool
     {
         if (method_exists($user, 'isGlobalAdmin')) {

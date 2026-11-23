@@ -8,6 +8,7 @@ use Capell\Admin\Enums\AdminNotificationGroupEnum;
 use Capell\Admin\Models\AdminNotificationSubscription;
 use Capell\Admin\Support\Notifications\AdminNotificationGroupRegistry;
 use Capell\Core\Support\TableName;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -43,7 +44,7 @@ final class ResolveAdminNotificationRecipientsAction
             ->with('user')
             ->where('group_key', $groupKey)
             ->get()
-            ->each(function (AdminNotificationSubscription $subscription) use ($recipients): void {
+            ->each(function (AdminNotificationSubscription $subscription) use ($recipients, $definition): void {
                 $user = $subscription->user;
 
                 if (! $user instanceof Model || blank($user->getKey())) {
@@ -53,6 +54,12 @@ final class ResolveAdminNotificationRecipientsAction
                 $recipientKey = $user::class . ':' . $user->getKey();
 
                 if ($subscription->subscribed) {
+                    // A subscription outlives the permission it was made under, so
+                    // the group's own eligibility check runs again at send time.
+                    if ($definition->canReceive instanceof Closure && ! ($definition->canReceive)($user)) {
+                        return;
+                    }
+
                     $recipients->put($recipientKey, $user);
 
                     return;
