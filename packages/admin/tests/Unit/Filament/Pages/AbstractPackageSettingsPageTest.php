@@ -12,11 +12,14 @@ use Capell\Admin\Tests\Fixtures\Autoload\AbstractPackageSettingsPageTestSettings
 use Capell\Core\Enums\ExtensionStatusEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\CapellExtension;
+use Capell\Core\Support\Process\ProcessFactoryInterface;
 use Capell\Core\Support\Settings\SettingsGroupMetadata;
 use Capell\Core\Support\Settings\SettingsSchemaRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
+use Capell\Tests\Support\FilamentNotificationSnapshots;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
@@ -189,6 +192,28 @@ it('can uninstall an extension from the package settings footer', function (): v
 
     expect(CapellExtension::query()->where('composer_name', 'vendor/settings-extension')->exists())->toBeFalse()
         ->and(CapellCore::isPackageInstalled('vendor/settings-extension'))->toBeFalse();
+});
+
+it('refuses to delete package files from the package settings footer when server side tooling is disabled', function (): void {
+    grantPackageSettingsLifecycleAccess();
+
+    CapellCore::registerPackage(name: 'vendor/settings-extension', version: '1.0.0');
+    CapellCore::markPackageInstalled('vendor/settings-extension');
+    registerPackageSettingsMetadata('vendor/settings-extension');
+
+    config()->set('capell.release_root_mode', 'mutable');
+    config()->set('capell.server_side_tooling', false);
+
+    // Composer must never be started: a call is counted when the mock is closed.
+    $factory = Mockery::mock(ProcessFactoryInterface::class);
+    $factory->shouldNotReceive('make');
+
+    app()->instance(ProcessFactoryInterface::class, $factory);
+
+    expectPresent(packageSettingsFormAction('uninstallExtension'))->call(['data' => ['delete_extension_package' => true]]);
+
+    expect(FilamentNotificationSnapshots::pull()->map(fn (Notification $notification): string => $notification->getId())->all())->toContain('extension-uninstall-failed')
+        ->not->toContain('extension-uninstalled');
 });
 
 it('keeps dependency-blocked package settings uninstall visible but close-only', function (): void {

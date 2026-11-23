@@ -297,6 +297,10 @@ abstract class AbstractPackageSettingsPage extends AbstractAdminSettingsPage
                         $package,
                         delete: $deletePackage,
                         deleteData: ($data['delete_extension_data'] ?? false) === true,
+                        // Removing the package files is an unattended Composer write
+                        // driven by an HTTP request, so it needs server-side tooling
+                        // exactly as the extensions page does.
+                        requiresServerSideTooling: true,
                     );
                 } catch (Throwable $throwable) {
                     Notification::make('extension-uninstall-failed')
