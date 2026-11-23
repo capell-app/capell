@@ -7,6 +7,8 @@ namespace Capell\Admin\Actions\Themes;
 use Capell\Admin\Data\Themes\ThemeEditorStateData;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -21,6 +23,7 @@ final class CreateCustomThemeAction
     use AsObject;
 
     /**
+     * @throws AuthorizationException
      * @throws ValidationException
      */
     public function handle(
@@ -30,6 +33,10 @@ final class CreateCustomThemeAction
         bool $default = false,
         bool $status = true,
     ): Theme {
+        // The default theme is the installation's, shared by every site, so only
+        // an actor with unrestricted site access may take it over.
+        throw_if($default && ! SiteAccess::current()->isGlobal(), AuthorizationException::class);
+
         return DB::transaction(function () use ($name, $key, $description, $default, $status): Theme {
             if (Theme::query()->where('key', $key)->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages([
