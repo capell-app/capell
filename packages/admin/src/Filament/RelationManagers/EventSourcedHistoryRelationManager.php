@@ -6,9 +6,9 @@ namespace Capell\Admin\Filament\RelationManagers;
 
 use BackedEnum;
 use Capell\Admin\Data\Activity\ActivityFieldDiffData;
-use Capell\Admin\Enums\CapellPermission;
 use Capell\Admin\Enums\RollbackDirection;
 use Capell\Admin\Support\Activity\ActivityChangeDetailsPresenter;
+use Capell\Admin\Support\EventSourcing\EventSourcedRestoreAccess;
 use Capell\Admin\Support\EventSourcing\PageVersionChangeSummary;
 use Capell\Admin\Support\EventSourcing\RollbackChangeSetMapper;
 use Capell\Core\EventSourcing\Contracts\EventSourced;
@@ -56,6 +56,8 @@ final class EventSourcedHistoryRelationManager extends RelationManager
 
     /** @var array<int, VersionComparisonData> */
     private array $comparisons = [];
+
+    private ?bool $canRestore = null;
 
     #[Override]
     public static function canViewForRecord(Model $ownerRecord, string $pageClass): bool
@@ -238,9 +240,13 @@ final class EventSourcedHistoryRelationManager extends RelationManager
         return $changedFields;
     }
 
+    /**
+     * The rollback permission and the page policy's update decision, both in the
+     * page's own site team. Memoised for the request: every row asks.
+     */
     private function canRestoreVersions(): bool
     {
-        return auth()->user()?->can(CapellPermission::RollbackPage->name()) === true;
+        return $this->canRestore ??= resolve(EventSourcedRestoreAccess::class)->allows($this->getOwnerRecord());
     }
 
     /**
@@ -350,10 +356,10 @@ final class EventSourcedHistoryRelationManager extends RelationManager
             // user lacks permission.
             ->visible(fn (PageRevision $record): bool => $record->version !== $headVersion
                 && $this->directionFor($record, $activeContentVersion) !== RollbackDirection::Current
-                && auth()->user()?->can(CapellPermission::RollbackPage->name()) === true)
+                && $this->canRestoreVersions())
             // Server-side guard: visibility alone hides the button but does not
             // stop a forged action request from executing the restore.
-            ->authorize(static fn (): bool => auth()->user()?->can(CapellPermission::RollbackPage->name()) === true)
+            ->authorize(fn (): bool => $this->canRestoreVersions())
             ->modalHeading(fn (PageRevision $record): string => __(
                 $this->directionFor($record, $activeContentVersion)->headingKey(),
                 ['version' => $record->version],

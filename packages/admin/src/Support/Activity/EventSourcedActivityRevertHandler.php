@@ -7,7 +7,7 @@ namespace Capell\Admin\Support\Activity;
 use Capell\Admin\Contracts\Activity\ActivityRevertHandler;
 use Capell\Admin\Data\Activity\ActivityRevertResultData;
 use Capell\Admin\Data\Activity\ActivityRevertSelectionData;
-use Capell\Admin\Enums\CapellPermission;
+use Capell\Admin\Support\EventSourcing\EventSourcedRestoreAccess;
 use Capell\Core\EventSourcing\Contracts\EventSourced;
 use Capell\Core\EventSourcing\Exceptions\RollbackBlocked;
 use Capell\Core\EventSourcing\Rollback\Actions\ApplyRollbackAction;
@@ -64,9 +64,10 @@ final class EventSourcedActivityRevertHandler implements ActivityRevertHandler
         }
 
         // Reverting an activity here performs a full page rollback, so it must
-        // require page.rollback in its own right — not merely activity_log.revert
-        // (the permission gating the Activity UI's revert button).
-        if (auth()->user()?->can(CapellPermission::RollbackPage->name()) !== true) {
+        // require page.rollback and the page's update decision in the page's own
+        // site team, not merely activity_log.revert (the permission gating the
+        // Activity UI's revert button).
+        if (! resolve(EventSourcedRestoreAccess::class)->allows($model)) {
             return ActivityRevertResultData::failed('capell-admin::event-sourcing.rollback_forbidden');
         }
 
