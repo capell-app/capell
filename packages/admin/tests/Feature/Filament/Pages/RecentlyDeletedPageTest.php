@@ -159,6 +159,11 @@ it('refuses foreign deleted record mutations and permits accessible records', fu
     $permission = Permission::findOrCreate($ability . ':' . ($resource === 'page' ? 'Page' : 'Media'), 'web');
     $actor->givePermissionTo($permission);
 
+    if ($resource === 'media') {
+        // Changing media that belongs to a page needs the right to update that page as well.
+        $actor->givePermissionTo(Permission::findOrCreate('Update:Page', 'web'));
+    }
+
     $page = new RecentlyDeletedPage;
 
     $page->{$operation}($resource, (int) $other->getKey());

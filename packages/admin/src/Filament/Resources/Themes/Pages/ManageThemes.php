@@ -16,6 +16,7 @@ use Capell\Admin\Filament\Resources\Themes\Widgets\ThemesAlertsWidget;
 use Capell\Admin\Support\AdminSurfaceLookup;
 use Capell\Admin\Support\Schemas\AdminSchemaExtensionPipeline;
 use Capell\Core\Models\Theme;
+use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
@@ -196,7 +197,10 @@ class ManageThemes extends ManageRecords implements ValidatesDelete
                             ->label(__('capell-admin::table.description'))
                             ->maxLength(255),
                         Toggle::make('custom_default')
-                            ->label(__('capell-admin::form.default')),
+                            ->label(__('capell-admin::form.default'))
+                            // The default theme serves every site, so only unrestricted
+                            // site access may set it; the action enforces the same rule.
+                            ->visible(fn (): bool => SiteAccess::current()->isGlobal()),
                         Toggle::make('custom_status')
                             ->label(__('capell-admin::table.status'))
                             ->default(true),

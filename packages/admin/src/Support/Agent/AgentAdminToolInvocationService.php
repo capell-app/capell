@@ -65,6 +65,11 @@ final readonly class AgentAdminToolInvocationService
             sessionId: $sessionId,
         );
 
+        // Listing hides tools the actor cannot use, but a call can name any
+        // registered tool, so availability, which carries the permission check
+        // some tools rely on, is enforced here as well.
+        throw_unless($tool->isAvailable($invocation), AuthorizationException::class, (string) __('capell-admin::agent.tool_unavailable'));
+
         if ($tool->definition()->effect === AgentToolEffect::Read) {
             $tool->authorize($invocation);
 

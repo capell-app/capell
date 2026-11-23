@@ -9,6 +9,7 @@ use Capell\Admin\Livewire\Header\AdminTools;
 use Capell\Admin\Settings\AdminSettings;
 use Capell\Admin\Tests\Fixtures\Autoload\ClearCacheCommandTestCleaner;
 use Capell\Admin\Tests\Support\Models\TeamScopedPanelUser;
+use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Deployment\ReleaseRootWriteGuard;
 use Capell\Core\Support\Hosting\MultiNodeTopologyGuard;
@@ -21,6 +22,7 @@ use Illuminate\Cache\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -241,4 +243,36 @@ it('refuses a site-scoped editor who calls the clear cache tool and clears nothi
         resolve(PermissionRegistrar::class)->teams = false;
         config(['permission.teams' => false]);
     }
+});
+
+it('refuses a panel user who calls the site tree rebuild and leaves the tree untouched', function (): void {
+    $pages = Page::factory()->count(2)->create();
+    $table = (new Page)->getTable();
+    $lft = (new Page)->getLftName();
+    $rgt = (new Page)->getRgtName();
+    $healthy = DB::table($table)->get([(new Page)->getKeyName(), $lft, $rgt]);
+    DB::table($table)->update([$lft => 1, $rgt => 2]);
+
+    expect(Page::isBrokenWithoutPublish())->toBeTrue();
+
+    Permission::findOrCreate('Update:Page', 'web');
+
+    Livewire::actingAs(test()->createUserWithPermission('Update:Page'))
+        ->test(AdminTools::class)
+        ->call('siteTree')
+        ->assertForbidden();
+
+    expect(Page::isBrokenWithoutPublish())->toBeTrue()
+        ->and(DB::table($table)->where($lft, 1)->count())->toBe($pages->count());
+
+    // The administrator is let through the gate: with a sound tree there is nothing to rebuild.
+    foreach ($healthy as $row) {
+        DB::table($table)->where((new Page)->getKeyName(), $row->{(new Page)->getKeyName()})->update([$lft => $row->{$lft}, $rgt => $row->{$rgt}]);
+    }
+
+    expect(Page::isBrokenWithoutPublish())->toBeFalse();
+
+    test()->actingAsAdmin();
+
+    Livewire::test(AdminTools::class)->call('siteTree')->assertOk();
 });

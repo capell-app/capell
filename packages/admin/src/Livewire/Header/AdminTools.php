@@ -160,6 +160,8 @@ class AdminTools extends Component
 
     public function siteTree(): bool
     {
+        $this->assertGlobalAdmin();
+
         /** @var class-string<Page> $model */
         $model = Page::class;
 

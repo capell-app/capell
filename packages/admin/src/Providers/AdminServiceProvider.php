@@ -1063,6 +1063,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                     label: $group->label(),
                     description: $group->description(),
                     defaultRecipients: ResolveDefaultPackageOperationRecipientsAction::run(...),
+                    canReceive: static fn (Model $user): bool => resolve(ResolveDefaultPackageOperationRecipientsAction::class)->canReceive($user),
                 );
             }
         });

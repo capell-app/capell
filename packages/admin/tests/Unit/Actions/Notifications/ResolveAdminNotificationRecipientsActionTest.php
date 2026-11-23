@@ -52,14 +52,47 @@ it('applies explicit unsubscribe and subscribe overrides', function (): void {
     $superAdmin = UserFactory::new()->createOne()->assignRole('super_admin');
     $developer = UserFactory::new()->createOne();
 
-    SaveAdminNotificationSubscriptionsAction::run($superAdmin, []);
-    SaveAdminNotificationSubscriptionsAction::run($developer, [AdminNotificationGroupEnum::PackageOperations->value]);
+    // A group that accepts any subscriber, as groups registered without an eligibility check do.
+    resolve(AdminNotificationGroupRegistry::class)->register(
+        key: 'open_group',
+        label: 'Open group',
+        description: 'Anyone may subscribe.',
+        defaultRecipients: function () use ($superAdmin): Collection {
+            /** @var Collection<int, Model> $recipients */
+            $recipients = new Collection([$superAdmin]);
 
-    $recipients = ResolveAdminNotificationRecipientsAction::run(AdminNotificationGroupEnum::PackageOperations);
+            return $recipients;
+        },
+    );
+
+    SaveAdminNotificationSubscriptionsAction::run($superAdmin, []);
+    SaveAdminNotificationSubscriptionsAction::run($developer, ['open_group']);
+
+    $recipients = ResolveAdminNotificationRecipientsAction::run('open_group');
 
     expect($recipients->pluck('id')->all())
         ->toContain($developer->getKey())
         ->not->toContain($superAdmin->getKey());
+});
+
+it('does not send package operation notifications to a subscriber who is no longer allowed to receive them', function (): void {
+    Role::findOrCreate('super_admin');
+
+    $superAdmin = UserFactory::new()->createOne()->assignRole('super_admin');
+    $demoted = UserFactory::new()->createOne()->assignRole('super_admin');
+    $outsider = UserFactory::new()->createOne();
+
+    SaveAdminNotificationSubscriptionsAction::run($demoted, [AdminNotificationGroupEnum::PackageOperations->value]);
+    SaveAdminNotificationSubscriptionsAction::run($outsider, [AdminNotificationGroupEnum::PackageOperations->value]);
+
+    $demoted->removeRole('super_admin');
+
+    $recipients = ResolveAdminNotificationRecipientsAction::run(AdminNotificationGroupEnum::PackageOperations);
+
+    expect($recipients->pluck('id')->all())
+        ->toContain($superAdmin->getKey())
+        ->not->toContain($demoted->getKey())
+        ->not->toContain($outsider->getKey());
 });
 
 it('lists the subscription state that the user preference form should render', function (): void {

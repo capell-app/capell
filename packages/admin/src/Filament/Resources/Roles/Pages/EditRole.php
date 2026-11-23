@@ -11,6 +11,7 @@ use Capell\Admin\Actions\Shield\LogRolePermissionChangesAction;
 use Capell\Admin\Actions\Shield\ResetRoleToDefaultPermissionsAction;
 use Capell\Admin\Data\Shield\RolePermissionChangeSetData;
 use Capell\Admin\Filament\Resources\Roles\Pages\Concerns\HasTopFormActions;
+use Capell\Admin\Filament\Resources\Roles\Pages\Concerns\RefusesPermissionsBeyondTheEditors;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -28,6 +29,7 @@ use Spatie\Permission\Models\Role;
 class EditRole extends ShieldEditRole
 {
     use HasTopFormActions;
+    use RefusesPermissionsBeyondTheEditors;
 
     protected static string $resource = RoleResource::class;
 
@@ -112,7 +114,15 @@ class EditRole extends ShieldEditRole
         $this->guardNameBeforeSave = $this->roleRecord()->guard_name;
         $this->permissionNamesBeforeSave = $this->permissionNamesForRole();
 
-        return parent::mutateFormDataBeforeSave($data);
+        $mutated = parent::mutateFormDataBeforeSave($data);
+
+        $this->refusePermissionsBeyondTheEditors(
+            $this->permissions,
+            $this->roleRecord()->getAttribute((string) config('permission.column_names.team_foreign_key', 'team_id')),
+            $this->permissionNamesBeforeSave,
+        );
+
+        return $mutated;
     }
 
     #[Override]

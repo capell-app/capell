@@ -535,6 +535,7 @@ return [
     'reset_role_permissions_success' => 'Role permissions reset.',
     'right' => 'Right',
     'role_permissions_change_summary' => ':added added, :removed removed',
+    'role_permissions_beyond_your_own' => 'You cannot give a role permissions you do not hold yourself: :permissions.',
     'role_permissions_no_changes' => 'No permission changes',
     'role_permissions_search_help' => 'Use search inside each permission group to find package, resource, page, widget, and custom permissions quickly.',
     'role_select_all_permissions' => 'Give all permissions',

@@ -87,6 +87,29 @@ final class ImpersonationCeiling
         return true;
     }
 
+    /**
+     * Permission names an actor holds in one team plus those held account-wide,
+     * or null when the actor is a super admin and so holds every permission.
+     *
+     * @return array<string, true>|null
+     */
+    public function heldPermissionNames(Authenticatable $actor, ?int $teamId): ?array
+    {
+        if (! $actor instanceof Model || $this->isSuperAdmin($actor)) {
+            return $actor instanceof Model ? null : [];
+        }
+
+        $global = $this->actorPermissionNames($actor, null);
+
+        if ($teamId === null || ! resolve(PermissionRegistrar::class)->teams) {
+            return $global;
+        }
+
+        $held = $this->permissionNames($actor, $teamId);
+
+        return $held === null ? null : $held + $global;
+    }
+
     /** @return array<string, true> */
     private function actorPermissionNames(Model $actor, ?int $teamId): array
     {

@@ -9,6 +9,7 @@ return [
     'bridge_error' => 'The agent request could not be completed.',
     'bridge_busy' => 'The agent is waiting for your response.',
     'confirmation_invalid' => 'The agent confirmation is missing, expired, or out of scope.',
+    'tool_unavailable' => 'That agent tool is not available to you.',
     'confirmation_changed' => 'The agent confirmation is no longer valid because the preview changed.',
     'confirmation_required' => 'Explicit confirmation is required before this admin write.',
     'active_site_required' => 'An active site is required for admin agent tools.',

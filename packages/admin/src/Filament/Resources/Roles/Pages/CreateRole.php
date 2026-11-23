@@ -6,6 +6,7 @@ namespace Capell\Admin\Filament\Resources\Roles\Pages;
 
 use BezhanSalleh\FilamentShield\Resources\Roles\Pages\CreateRole as ShieldCreateRole;
 use Capell\Admin\Filament\Resources\Roles\Pages\Concerns\HasTopFormActions;
+use Capell\Admin\Filament\Resources\Roles\Pages\Concerns\RefusesPermissionsBeyondTheEditors;
 use Capell\Admin\Filament\Resources\Roles\RoleResource;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -15,6 +16,7 @@ use Spatie\Permission\PermissionRegistrar;
 class CreateRole extends ShieldCreateRole
 {
     use HasTopFormActions;
+    use RefusesPermissionsBeyondTheEditors;
 
     protected static string $resource = RoleResource::class;
 
@@ -25,6 +27,7 @@ class CreateRole extends ShieldCreateRole
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data = parent::mutateFormDataBeforeCreate($data);
+        $team = null;
 
         if (config('permission.teams')) {
             $team = resolve(PermissionRegistrar::class)->getPermissionsTeamId();
@@ -32,6 +35,8 @@ class CreateRole extends ShieldCreateRole
             throw_unless($team !== null || ($actor !== null && SiteAccess::forActor($actor)->isGlobal()), AuthorizationException::class);
             $data[(string) config('permission.column_names.team_foreign_key', 'team_id')] = $team;
         }
+
+        $this->refusePermissionsBeyondTheEditors($this->permissions, $team);
 
         return $data;
     }

@@ -17,12 +17,14 @@ final class AdminNotificationGroupRegistry extends AbstractKeyedRegistry
 {
     /**
      * @param  Closure(): Collection<int, Model>  $defaultRecipients
+     * @param  (Closure(Model): bool)|null  $canReceive  Re-checked for every subscriber when a notification is sent; null accepts any subscriber.
      */
     public function register(
         AdminNotificationGroupEnum|string $key,
         string $label,
         string $description,
         Closure $defaultRecipients,
+        ?Closure $canReceive = null,
     ): self {
         $resolvedKey = $key instanceof AdminNotificationGroupEnum ? $key->value : $key;
 
@@ -33,6 +35,7 @@ final class AdminNotificationGroupRegistry extends AbstractKeyedRegistry
             label: $label,
             description: $description,
             defaultRecipients: $defaultRecipients,
+            canReceive: $canReceive,
         ));
 
         return $this;

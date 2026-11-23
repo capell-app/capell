@@ -6,8 +6,12 @@ namespace Capell\Admin\Policies;
 
 use Capell\Admin\Policies\Concerns\ResolvesShieldPermission;
 use Capell\Core\Models\Media;
+use Capell\Core\Models\Page;
+use Capell\Core\Models\Translation;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Gate;
 
 class MediaPolicy
 {
@@ -44,13 +48,15 @@ class MediaPolicy
     public function update(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('update', self::SUBJECT))
-            && SiteAccess::forActor($user)->canUseMedia($media);
+            && SiteAccess::forActor($user)->canUseMedia($media)
+            && $this->owningPageAllows($user, $media);
     }
 
     public function delete(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('delete', self::SUBJECT))
-            && SiteAccess::forActor($user)->canUseMedia($media);
+            && SiteAccess::forActor($user)->canUseMedia($media)
+            && $this->owningPageAllows($user, $media);
     }
 
     public function deleteAny(User $user): bool
@@ -61,7 +67,8 @@ class MediaPolicy
     public function restore(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('restore', self::SUBJECT))
-            && SiteAccess::forActor($user)->canUseMedia($media);
+            && SiteAccess::forActor($user)->canUseMedia($media)
+            && $this->owningPageAllows($user, $media);
     }
 
     public function restoreAny(User $user): bool
@@ -72,11 +79,36 @@ class MediaPolicy
     public function forceDelete(User $user, Media $media): bool
     {
         return $user->checkPermissionTo(self::permission('force_delete', self::SUBJECT))
-            && SiteAccess::forActor($user)->canUseMedia($media);
+            && SiteAccess::forActor($user)->canUseMedia($media)
+            && $this->owningPageAllows($user, $media);
     }
 
     public function forceDeleteAny(User $user): bool
     {
         return $user->checkPermissionTo(self::permission('force_delete_any', self::SUBJECT));
+    }
+
+    /**
+     * Media attached to a page, or to one of its translations, changes what that
+     * page shows, so changing or removing it needs the page policy's update
+     * decision as well, which carries the page-type role restrictions. Media on
+     * anything else is governed by the media permissions and site access alone.
+     */
+    private function owningPageAllows(User $user, Media $media): bool
+    {
+        // A trashed page still carries its page-type restrictions.
+        $media->loadMissing(['model' => fn (MorphTo $owner): MorphTo => $owner->withTrashed()]);
+        $owner = $media->model;
+
+        if ($owner instanceof Translation) {
+            $owner->loadMissing(['translatable' => fn (MorphTo $page): MorphTo => $page->withTrashed()]);
+            $owner = $owner->translatable;
+        }
+
+        if (! $owner instanceof Page) {
+            return true;
+        }
+
+        return Gate::forUser($user)->allows('update', $owner);
     }
 }
