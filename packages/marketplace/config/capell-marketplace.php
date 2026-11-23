@@ -78,16 +78,11 @@ return [
         'troubleshooting_url' => env('CAPELL_MARKETPLACE_TROUBLESHOOTING_URL', 'https://docs.capell.app/core/operations/debugging-marketplace/'),
     ],
     /*
-     * The scheduled heartbeat. Until this existed the heartbeat was
-     * user-triggered only, so a site nobody logs into had update detection and
-     * security advisories as old as the last visit. Daily rather than hourly:
-     * the answer changes when a publisher releases, not when this site asks.
-     */
-    /*
      * Site licence activation for Capell Pro and paid Marketplace packages. Set the key from your account's
      * purchase card; several keys may be comma-separated. Once a day the site sends its domain and each key, and
      * nothing else, to learn whether it holds a place on the licence. The answer only decides whether admins see a
-     * licence notice: it never disables a package or changes public pages. Local and staging hosts send nothing.
+     * licence notice: it never disables a package or changes public pages. Local hosts send nothing, and capell.app
+     * answers staging copies as free without recording them.
      */
     'licence' => [
         'keys' => array_values(array_filter(array_map(
@@ -97,6 +92,12 @@ return [
         'scheduled' => env('CAPELL_LICENCE_CHECK_SCHEDULED', true),
         'at' => env('CAPELL_LICENCE_CHECK_AT', '03:10'),
     ],
+    /*
+     * The scheduled heartbeat. Until this existed the heartbeat was
+     * user-triggered only, so a site nobody logs into had update detection and
+     * security advisories as old as the last visit. Daily rather than hourly:
+     * the answer changes when a publisher releases, not when this site asks.
+     */
     'heartbeat' => [
         'scheduled' => env('CAPELL_MARKETPLACE_HEARTBEAT_SCHEDULED', true),
         'at' => env('CAPELL_MARKETPLACE_HEARTBEAT_AT', '02:40'),
