@@ -50,8 +50,8 @@ it('sends only the site domain and licence key and records a licensed site', fun
     Http::assertSentCount(1);
 });
 
-// Catches local, staging and free-only sites sending a licence check at all.
-it('sends nothing for a site with no paid packages or on a local or staging host', function (?string $appUrl, bool $paid, ?SiteLicenceState $expected): void {
+// Catches local and free-only sites sending a licence check at all.
+it('sends nothing for a site with no paid packages or on a local host', function (?string $appUrl, bool $paid, ?SiteLicenceState $expected): void {
     if ($paid) {
         installPaidPackage();
     }
@@ -66,10 +66,22 @@ it('sends nothing for a site with no paid packages or on a local or staging host
     Http::assertNothingSent();
 })->with([
     'free packages only' => [null, false, null],
-    'staging host' => ['https://staging.client.com', true, SiteLicenceState::NonProduction],
     'no site address configured' => ['', true, SiteLicenceState::NonProduction],
     'local host' => ['http://client.test', true, SiteLicenceState::NonProduction],
 ]);
+
+// Catches a staging copy getting a notice: capell.app decides staging subdomains and records nothing about them.
+it('treats a staging copy the marketplace answers as free as needing no notice', function (): void {
+    installPaidPackage();
+    config(['app.url' => 'https://staging.client.co.uk']);
+    Http::fake([SITE_LICENCE_URL => Http::response(['data' => [
+        'status' => 'non_production', 'domain' => 'staging.client.co.uk', 'sitesUsed' => null, 'siteLimit' => null, 'packages' => [],
+    ]])]);
+
+    $status = resolve(CheckSiteLicenceAction::class)->handle();
+
+    expect($status?->state)->toBe(SiteLicenceState::NonProduction)->and($status?->state->showsNotice())->toBeFalse();
+});
 
 it('asks for a key when paid packages are installed without one, sending nothing', function (): void {
     installPaidPackage();
@@ -123,9 +135,9 @@ it('shows the licence notice only inside the admin panel to people who manage ex
     $this->get('/')->assertDontSee('data-capell-site-licence-notice', false);
 });
 
-it('classifies local and staging hosts the same way capell.app does', function (string $host, bool $free): void {
+it('sends no check from local hosts and leaves public hosts to capell.app', function (string $host, bool $free): void {
     expect(NonProductionDomain::is($host))->toBe($free);
 })->with([
-    ['localhost', true], ['shop.test', true], ['192.168.1.20', true], ['staging.client.co.uk', true],
-    ['pr-12-preview.client.com', true], ['client.com', false], ['dev.to', false], ['devstudio.com', false],
+    ['localhost', true], ['shop.test', true], ['192.168.1.20', true], ['studio.local', true],
+    ['staging.client.co.uk', false], ['dev-agency.co.uk', false], ['client.com', false], ['8.8.8.8', false],
 ]);

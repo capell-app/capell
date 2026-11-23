@@ -21,7 +21,7 @@ use Throwable;
 /**
  * Checks this site's licence, as the licence terms describe: once a day, sending the site's domain and each licence
  * key and nothing else. It never changes how the site runs; the answer only decides whether admins see a notice. A
- * site with no paid packages, or on a local or staging host, sends nothing. Every paid package, Capell Pro and
+ * site with no paid packages, or on a local host, sends nothing; capell.app answers staging copies as free. Every paid package, Capell Pro and
  * third-party alike, is checked through this one call.
  */
 final class CheckSiteLicenceAction
@@ -80,6 +80,11 @@ final class CheckSiteLicenceAction
             if ($status === 'active') {
                 $covered = [...$covered, ...array_filter((array) ($answer['packages'] ?? []), is_string(...))];
             }
+        }
+
+        // capell.app answers a staging copy of a site as free and records nothing about it.
+        if (in_array('non_production', $statuses, true)) {
+            return $this->store(SiteLicenceState::NonProduction, [], null, null);
         }
 
         $unlicensed = array_values(array_diff($paid, $covered));
