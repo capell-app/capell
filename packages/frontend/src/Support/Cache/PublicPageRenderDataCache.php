@@ -206,6 +206,7 @@ final class PublicPageRenderDataCache
             $this->resourceSelectionFingerprint(),
             ($metadata ?? $this->contributors->metadata($context))->fingerprint,
             $this->publicReadEligibilityStamp(),
+            $this->requestOrigin(),
         ];
 
         return hash('xxh128', implode('|', array_map(
@@ -224,6 +225,16 @@ final class PublicPageRenderDataCache
     private function publicReadEligibilityStamp(): string
     {
         return resolve(PublicReadEligibilityState::class)->stamp()?->key() ?? 'unreadable';
+    }
+
+    /**
+     * Resource plans store absolute asset URLs built from the request root, so two domains
+     * (or schemes) serving one site must not share an entry. Invalidation is unaffected: it
+     * bumps the generation inside the content version, which retires every origin's entry.
+     */
+    private function requestOrigin(): string
+    {
+        return request()->getSchemeAndHttpHost();
     }
 
     private function resourceSelectionFingerprint(): string
