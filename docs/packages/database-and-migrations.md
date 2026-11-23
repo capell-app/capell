@@ -65,6 +65,17 @@ CAPELL_MARIADB_CONNECTION=mysql vendor/bin/pest --configuration=phpunit.mariadb.
 
 The same file declares the package admission lock proofs (`packages/core/tests/MariaDB/PackageAdmissionConcurrencyTest.php`), run against the same `capell_editor_race_test` database. They prove that a disable, uninstall or quarantine waits for admitted work to commit, that admission waits for an in-flight disable and then refuses, and that rolled-back work releases the lock.
 
+## Keys Of Any Model On The mariadb Driver
+
+Laravel's `mariadb` driver creates `uuid()` and `uuidMorphs()` columns as MariaDB's native UUID type. That type refuses a numeric key and cannot be compared with a numeric column (error 4078), while SQLite and the `mysql` driver create text and accept both. A column that holds the key of any model, numeric or UUID, must therefore be a string: use `string('owner_id', 36)` or `char('owner_id', 36)`, and keep `uuid()` for values that are always UUIDs.
+
+Core migration `2026_11_22_000010_store_asset_attachment_keys_as_text` converts the `related_id` and `asset_id` columns of `asset_attachments` to `CHAR(36)` where they are native UUID columns, and leaves every other driver untouched. Its proof (`packages/core/tests/MariaDB/AssetAttachmentKeysTest.php`) is declared in `phpunit.mariadb.xml` and needs a disposable MariaDB server:
+
+```bash
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_USERNAME=root DB_PASSWORD=secret \
+CAPELL_MARIADB_CONNECTION=mariadb vendor/bin/pest --configuration=phpunit.mariadb.xml --testsuite=MariaDBAssetAttachmentKeys
+```
+
 ## Extension Lifecycle Ledger
 
 Composer presence makes a package available. The `capell_extensions` row controls whether it can affect runtime.
@@ -78,10 +89,10 @@ Statuses:
 
 Package install actions should mark a package `installing` before running package install commands, `enabled` only after success, and `failed` when an install command throws or exits unsuccessfully.
 
-
 ### Package admission
 
 A package's side-effect work (listeners, queued jobs, adapters) should run through `RunUnderPackageAdmissionAction::run($packageName, $work)` instead of checking `CapellCore::isPackageEnabled()`. That check reads this process's cached lifecycle, so a long-lived worker keeps acting after another process disables the package. Admission reads the `capell_extensions` row fresh with a shared lock and runs the work in the same transaction on the default connection. A disable, uninstall or quarantine updates that row, so it waits for admitted work to commit, and work admitted afterwards is refused. Missing rows, quarantined, failed, disabled and runtime-gate-blocked packages are refused, and the work does not run. The result reports `admitted`, a `reason` and the work's `value`. Writes through another connection are not covered by the lock.
+
 ## Settings Migrations
 
 Place settings migrations in `database/settings` and make them idempotent:
