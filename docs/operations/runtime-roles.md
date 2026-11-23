@@ -33,6 +33,8 @@ return $app;
 
 Custom application bootstraps are reported as customised instead of being rewritten. Apply the equivalent call after `create()` and before a kernel bootstraps the application.
 
+The call is what enforces the role. When `CAPELL_RUNTIME_ROLE` is `public` or `authoring` and the call has not run, Capell refuses to boot with a message naming the line to add, instead of carrying on as a combined node with the admin, installer and marketplace providers loaded. `php artisan capell:doctor` still runs on such a node and reports the missing call, so you can inspect it. Setting `CAPELL_RUNTIME_ROLE=combined` needs no bootstrap call.
+
 ## Build and deploy
 
 Set `CAPELL_RUNTIME_ROLE` in the real process environment, not per request. Build all selected roles into the same immutable release:
@@ -45,7 +47,7 @@ for role in combined public authoring; do
 done
 ```
 
-`capell:package-cache` generates the filtered Laravel package, bootstrap-provider, and service manifests for all three roles. Laravel config, package, service, route, and event caches live below `bootstrap/cache/capell-runtime/<role>/`; they are never shared between public and authoring processes.
+`capell:package-cache` generates the filtered Laravel package, bootstrap-provider, and service manifests for all three roles. Laravel config, package, service, route, and event caches live below `bootstrap/cache/capell-runtime/<role>/`; they are never shared between public and authoring processes. A `public` or `authoring` process refuses to boot when `APP_CONFIG_CACHE`, `APP_PACKAGES_CACHE`, `APP_SERVICES_CACHE`, `APP_ROUTES_CACHE` or `APP_EVENTS_CACHE` is already set in its real process environment to a different path, because Capell cannot override it and the node would read another role's cache. Unset the variable for that process or set it to the role path the error prints.
 
 Deploy the same code and locked dependencies to each node, then set only that process group’s role:
 

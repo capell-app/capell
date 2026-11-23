@@ -194,6 +194,34 @@ final class PlanValidator
         }
     }
 
+    /**
+     * Publication pushes a split and an immutable tag to each package's
+     * split_repository. The plan is a file that can be regenerated or rewritten
+     * between planning and publishing, so the destination is bound to the
+     * repository config/release-packages.json declares for that package name.
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<array-key,mixed>  $definitions
+     */
+    public static function assertDeclaredRepositories(array $plan, array $definitions): void
+    {
+        $declared = [];
+        foreach ($definitions as $definition) {
+            $declared[$definition['name']] = $definition['repository'] ?? null;
+        }
+
+        foreach ($plan['packages'] as $package) {
+            $expected = $declared[$package['name']] ?? null;
+            if ($expected === null) {
+                throw new ReleaseException(sprintf('Package %s is in the plan but not declared in config/release-packages.json. Re-plan, or add the declaration.', $package['name']));
+            }
+
+            if ($package['split_repository'] !== $expected) {
+                throw new ReleaseException(sprintf('Package %s would be pushed to %s but config/release-packages.json declares %s. Re-plan from the current definitions, or align the declaration.', $package['name'], $package['split_repository'], $expected));
+            }
+        }
+    }
+
     // LOCKSTEP-END declared-maturity
 
     // LOCKSTEP-BEGIN version-transition
@@ -593,6 +621,7 @@ final class ReleaseEngine
         // paths, and validates only the baseline -- so re-assert declarations
         // here, against the definitions on disk at publication time.
         PlanValidator::assertDeclaredMaturity($plan, $this->releaseDefinitions());
+        PlanValidator::assertDeclaredRepositories($plan, $this->releaseDefinitions());
         $planHash = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : ['plan_sha256' => $planHash, 'source_commit' => $plan['source']['commit'], 'packages' => []];
@@ -716,6 +745,7 @@ final class ReleaseEngine
     public function verify(array $plan, string $planPath): void
     {
         (new PlanValidator)->validate($plan);
+        PlanValidator::assertDeclaredRepositories($plan, $this->releaseDefinitions());
         $this->assertExactSource($plan);
         $statePath = $planPath . '.state.json';
         $state = is_file($statePath) ? json_decode((string) file_get_contents($statePath), true, 512, JSON_THROW_ON_ERROR) : [];

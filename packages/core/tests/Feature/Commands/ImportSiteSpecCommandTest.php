@@ -542,3 +542,22 @@ it('reports a promoted page field that breaks its property rule against the page
 
     expect(Site::query()->count())->toBe($siteCount);
 });
+
+it('rejects an import whose page meta overrides a validated field and creates no site', function (): void {
+    $payload = importSiteSpecPayload();
+    $payload['pages'][0]['meta'] = ['slug' => '../admin', 'robots' => 'index,follow'];
+    $path = writeSiteSpec($payload);
+
+    try {
+        $command = $this->artisan('capell:site-spec-import', ['spec' => $path]);
+        assert($command instanceof PendingCommand);
+        $command->expectsOutputToContain('pages.0.meta.slug')
+            ->expectsOutputToContain('pages.0.meta.robots')
+            ->assertExitCode(Command::FAILURE)
+            ->run();
+    } finally {
+        unlink($path);
+    }
+
+    expect(Site::query()->where('name', 'Harbour Books')->exists())->toBeFalse();
+});

@@ -24,6 +24,9 @@ final class CapellSiteSpecConstraints
 
     public const string SLUG_PATTERN = '^[a-z0-9]+(?:-[a-z0-9]+)*$';
 
+    /** A slug a page is stored under: a spec slug, or `/` for the home page the installer created. */
+    public const string STORED_SLUG_PATTERN = '^(?:\/|[a-z0-9]+(?:-[a-z0-9]+)*)$';
+
     public const string HEX_COLOUR_PATTERN = '^#[0-9A-Fa-f]{6}$';
 
     public const string COMPOSER_PACKAGE_PATTERN = '^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?\/[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$';
@@ -35,6 +38,16 @@ final class CapellSiteSpecConstraints
 
     /** Characters in one text property value; property rules can set a tighter limit. */
     public const int MAX_PROPERTY_VALUE_LENGTH = 5000;
+
+    /**
+     * Page `meta` keys the importer or the page creator treats as authoritative. Each has a validated
+     * field of its own, so a spec may not set it through the free-form `meta` object. `slug` is not
+     * listed: a page may store itself under a different slug than the one other parts of the spec use
+     * to refer to it, so `meta.slug` stays, but it must match {@see self::STORED_SLUG_PATTERN}.
+     *
+     * @var list<string>
+     */
+    public const array RESERVED_PAGE_META_KEYS = ['robots', 'noindex', 'visibility', 'image_id'];
 
     public const int MAX_TOTAL_CONTENT_LENGTH = 200000;
 

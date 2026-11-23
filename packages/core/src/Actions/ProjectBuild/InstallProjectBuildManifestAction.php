@@ -80,7 +80,8 @@ final class InstallProjectBuildManifestAction
             throw ValidationException::withMessages($validation['errors']);
         }
 
-        return BuildCapellSiteFromSpecAction::run(CapellSiteSpecData::from($validation['normalized']));
+        // The signed manifest defines the project's language and theme, applied over the seeded defaults.
+        return BuildCapellSiteFromSpecAction::run(CapellSiteSpecData::from($validation['normalized']), overwriteShared: true);
     }
 
     private function matches(ProjectBuildPackageData $expected, ?ProjectBuildInstalledPackageData $installed): bool

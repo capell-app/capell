@@ -6,7 +6,10 @@ namespace Capell\Core\Support\Runtime;
 
 use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Enums\RuntimeRole;
+use Capell\Core\Exceptions\RuntimeRoleMisconfiguredException;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
+use Illuminate\Contracts\Foundation\Application as ApplicationContract;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\LoadConfiguration;
@@ -15,9 +18,37 @@ use Illuminate\Foundation\Bootstrap\RegisterProviders;
 use Illuminate\Foundation\PackageManifest;
 use Illuminate\Support\Env;
 use ReflectionProperty;
+use Symfony\Component\Console\Input\ArgvInput;
 
 final class RuntimeRoleBootstrap
 {
+    /** Container marker proving the role-aware bootstrap ran for this application. */
+    public const string CONFIGURED_MARKER = 'capell.runtime-role.bootstrapped';
+
+    /** Console commands that stay available on a misconfigured node so an operator can inspect it. */
+    private const array REPAIR_COMMANDS = ['capell:doctor'];
+
+    /**
+     * Refuse to carry on as an unintended combined node: a split role that was configured
+     * in the environment but never enforced by the host bootstrap.
+     */
+    public static function assertConfigured(ApplicationContract $application, RuntimeRoleSelectionData $selection): void
+    {
+        if (! $selection->valid
+            || $selection->role === RuntimeRole::Combined
+            || self::isConfigured($application)
+            || self::isRepairCommand($application)) {
+            return;
+        }
+
+        throw RuntimeRoleMisconfiguredException::bootstrapMissing($selection->role);
+    }
+
+    public static function isConfigured(Container $container): bool
+    {
+        return $container->bound(self::CONFIGURED_MARKER);
+    }
+
     public static function configure(Application $application): void
     {
         $application->afterBootstrapping(
@@ -77,6 +108,7 @@ final class RuntimeRoleBootstrap
         $application->instance(RuntimeRoleResolver::class, $resolver);
         $application->instance(RuntimeRoleProviderPolicy::class, $policy);
         $application->instance(RuntimeRoleCachePaths::class, $paths);
+        $application->instance(self::CONFIGURED_MARKER, true);
 
         (new Filesystem)->ensureDirectoryExists(dirname($paths->services($selection->role)));
         self::configureRoleCachePaths($paths, $selection->role);
@@ -102,11 +134,11 @@ final class RuntimeRoleBootstrap
 
     private static function configureRoleCachePaths(RuntimeRoleCachePaths $paths, RuntimeRole $role): void
     {
-        self::setRoleCachePath('APP_CONFIG_CACHE', $paths->config($role));
-        self::setRoleCachePath('APP_PACKAGES_CACHE', $paths->packages($role));
-        self::setRoleCachePath('APP_SERVICES_CACHE', $paths->services($role));
-        self::setRoleCachePath('APP_ROUTES_CACHE', $paths->routes($role));
-        self::setRoleCachePath('APP_EVENTS_CACHE', $paths->events($role));
+        self::setRoleCachePath($role, 'APP_CONFIG_CACHE', $paths->config($role));
+        self::setRoleCachePath($role, 'APP_PACKAGES_CACHE', $paths->packages($role));
+        self::setRoleCachePath($role, 'APP_SERVICES_CACHE', $paths->services($role));
+        self::setRoleCachePath($role, 'APP_ROUTES_CACHE', $paths->routes($role));
+        self::setRoleCachePath($role, 'APP_EVENTS_CACHE', $paths->events($role));
     }
 
     private static function configureLaravelPackageManifest(
@@ -199,8 +231,32 @@ final class RuntimeRoleBootstrap
             : [];
     }
 
-    private static function setRoleCachePath(string $key, string $path): void
+    private static function setRoleCachePath(RuntimeRole $role, string $key, string $path): void
     {
         Env::getRepository()->set($key, $path);
+
+        // The environment repository is immutable: a variable defined by the real process
+        // environment silently refuses the write, leaving the node on a shared cache. Combined
+        // keeps the documented per-command override (for example APP_CONFIG_CACHE pointing at
+        // a missing file); a split role must be isolated, so a different value is refused.
+        $effective = Env::get($key);
+
+        if ($role !== RuntimeRole::Combined && $effective !== $path) {
+            throw RuntimeRoleMisconfiguredException::cachePathOverridden(
+                $role,
+                $key,
+                is_string($effective) ? $effective : get_debug_type($effective),
+                $path,
+            );
+        }
+    }
+
+    private static function isRepairCommand(ApplicationContract $application): bool
+    {
+        if (! $application->runningInConsole()) {
+            return false;
+        }
+
+        return in_array(new ArgvInput()->getFirstArgument(), self::REPAIR_COMMANDS, true);
     }
 }

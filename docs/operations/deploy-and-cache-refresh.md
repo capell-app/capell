@@ -87,7 +87,7 @@ Retry only after fixing the cause. Use `queue:forget` for a single stale row and
 Once `config:cache` has run, Laravel stops reading `.env`. `env()` called outside `config/*.php` returns `null`, and editing `.env` has no effect until the cache is rebuilt. This affects ad hoc `artisan` commands too: they load the cached configuration of the release they run from, not the file you just edited.
 
 - Change a value in `.env`, then run `php artisan config:cache` (or `capell:runtime-refresh`) and restart workers and PHP-FPM.
-- To run one command against a different configuration without touching the cache, point Laravel at a cache path that does not exist: `APP_CONFIG_CACHE=/tmp/no-config.php php artisan config:show app.url`. Laravel then loads configuration from the files and `.env`.
+- To run one command against a different configuration without touching the cache, point Laravel at a cache path that does not exist: `APP_CONFIG_CACHE=/tmp/no-config.php php artisan config:show app.url`. Laravel then loads configuration from the files and `.env`. This override applies to the `combined` role only; a `public` or `authoring` process refuses to boot with `APP_CONFIG_CACHE` set, so run the command under `CAPELL_RUNTIME_ROLE=combined`.
 - Run `artisan` as the same user as PHP-FPM so cache and log files are not created with the wrong owner.
 
 Values stored in the database, such as Admin **Settings**, are separate from `.env`. Where Admin owns a value, its stored setting takes over and the matching env var is silently ignored (the activity-collection keys are the documented example in [Configuration](../development/configuration.md)). Clearing the config cache does not change them.

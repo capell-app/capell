@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Core\Support\Runtime\ComposerInstallIdentity;
 use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
@@ -27,6 +28,8 @@ $fixtureState = $argv[2] ?? null;
 $useStaleGeneratedManifests = $fixtureState === 'stale';
 $useCustomProviders = $fixtureState === 'custom';
 $useResolvedApplication = $fixtureState === 'resolved';
+// A host that sets the role but never calls RuntimeRoleBootstrap: only Core's own provider registers.
+$useUnbootstrappedHost = in_array($fixtureState, ['unbootstrapped', 'unbootstrapped-doctor'], true);
 $useRemovedDevPackage = str_starts_with((string) $fixtureState, 'dev-package-removed');
 $basePath = sys_get_temp_dir() . '/capell-runtime-role-boot-' . bin2hex(random_bytes(6));
 $files = new Filesystem;
@@ -145,6 +148,26 @@ try {
     $application = $useCustomProviders
         ? Application::configure(basePath: $basePath)->withProviders($providers)->create()
         : new Application($basePath);
+    if ($useUnbootstrappedHost) {
+        if ($fixtureState === 'unbootstrapped-doctor') {
+            $_SERVER['argv'] = ['artisan', 'capell:doctor'];
+        }
+
+        $application->bootstrapWith([
+            LoadEnvironmentVariables::class,
+            LoadConfiguration::class,
+            RegisterFacades::class,
+        ]);
+        // Core's provider registers the role during its own registration; calling that step
+        // directly avoids needing the whole framework provider graph for this fixture.
+        new ReflectionMethod(CapellServiceProvider::class, 'registerRuntimeRole')
+            ->invoke(new CapellServiceProvider($application));
+
+        echo json_encode(['registered' => true], JSON_THROW_ON_ERROR);
+
+        return;
+    }
+
     if ($useResolvedApplication) {
         $application->bootstrapWith([
             LoadEnvironmentVariables::class,
@@ -193,6 +216,8 @@ try {
         'services_provider_count' => is_array($servicesManifest['providers'] ?? null) ? count($servicesManifest['providers']) : null,
         'services_provider_unique_count' => is_array($servicesManifest['providers'] ?? null) ? count(array_unique($servicesManifest['providers'])) : null,
     ], JSON_THROW_ON_ERROR);
+} catch (RuntimeException $runtimeException) {
+    echo json_encode(['error' => $runtimeException->getMessage(), 'exception' => $runtimeException::class], JSON_THROW_ON_ERROR);
 } finally {
     RegisterProviders::flushState();
     $files->deleteDirectory($basePath);

@@ -7,6 +7,7 @@ namespace Capell\Core\Actions;
 use Capell\Core\Actions\Properties\ValidatePromotedPropertyValuesAction;
 use Capell\Core\Contracts\Pageable;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecData;
+use Capell\Core\Data\SiteSpec\CapellSiteSpecLanguageData;
 use Capell\Core\Data\SiteSpec\CapellSiteSpecPageData;
 use Capell\Core\Events\SiteSpecPrivacyRepairing;
 use Capell\Core\EventSourcing\Enums\PageVersionSource;
@@ -39,17 +40,23 @@ final class BuildCapellSiteFromSpecAction
     use AsFake;
     use AsObject;
 
-    /** @param list<string> $keepPublished */
-    public function handle(CapellSiteSpecData $spec, bool $repairPrivate = false, array $keepPublished = [], bool $auditPrivate = false): Site
+    /**
+     * The spec's language and theme are shared across every site. Building from a spec reuses an identical
+     * row, but refuses to change one that differs unless `$overwriteShared` is set by a caller that is
+     * deliberately provisioning those rows.
+     *
+     * @param  list<string>  $keepPublished
+     */
+    public function handle(CapellSiteSpecData $spec, bool $repairPrivate = false, array $keepPublished = [], bool $auditPrivate = false, bool $overwriteShared = false): Site
     {
         // Versions created by an import are labelled as such in page history.
         return resolve(PageVersionContext::class)->run(
             PageVersionSource::Import,
             null,
-            function () use ($spec, $repairPrivate, $keepPublished, $auditPrivate): Site {
+            function () use ($spec, $repairPrivate, $keepPublished, $auditPrivate, $overwriteShared): Site {
                 // One build per site name at a time, so the name check and the create cannot interleave.
                 $site = Cache::lock('capell:site-spec-build:' . hash('xxh128', mb_strtolower($spec->site->name)), 120)
-                    ->block(30, fn (): Site => $this->build($spec, $repairPrivate, $keepPublished, $auditPrivate));
+                    ->block(30, fn (): Site => $this->build($spec, $repairPrivate, $keepPublished, $auditPrivate, $overwriteShared));
 
                 if (! $auditPrivate) {
                     RecordImportedPageVersionsAction::run($site);
@@ -63,7 +70,7 @@ final class BuildCapellSiteFromSpecAction
     /**
      * @param  list<string>  $keepPublished
      */
-    private function build(CapellSiteSpecData $spec, bool $repairPrivate, array $keepPublished, bool $auditPrivate): Site
+    private function build(CapellSiteSpecData $spec, bool $repairPrivate, array $keepPublished, bool $auditPrivate, bool $overwriteShared): Site
     {
         throw_if(($repairPrivate || $auditPrivate) && $spec->initialVisibility !== 'private', RuntimeException::class, 'Privacy audit and repair require the original private spec.');
         $hash = SiteSpecHasher::hash($spec);
@@ -98,6 +105,8 @@ final class BuildCapellSiteFromSpecAction
 
             return $named->refresh();
         }
+
+        $this->assertSharedRowsUnchanged($spec, $overwriteShared);
 
         if ($spec->initialVisibility === 'private') {
             resolve(PrivateSiteSpecSourceStore::class)->put($hash, $spec);
@@ -226,13 +235,52 @@ final class BuildCapellSiteFromSpecAction
         }
     }
 
+    /**
+     * The language and theme a spec names are rows every site uses. Importing must not rewrite
+     * one that already exists with different values, so each difference is listed and nothing is
+     * written until the caller has asked to overwrite.
+     */
+    private function assertSharedRowsUnchanged(CapellSiteSpecData $spec, bool $overwriteShared): void
+    {
+        if ($overwriteShared) {
+            return;
+        }
+
+        $differences = [];
+        $language = Language::query()->where('code', $spec->language->code)->first();
+
+        if ($language instanceof Language) {
+            foreach ($spec->language->statedAttributes() as $field => $value) {
+                if ($language->getAttribute($field) !== $value) {
+                    $differences[] = sprintf('language [%s] %s: %s -> %s', $spec->language->code, $field, var_export($language->getAttribute($field), true), var_export($value, true));
+                }
+            }
+        }
+
+        $theme = Theme::query()->where('key', $spec->theme->key)->first();
+
+        if ($theme instanceof Theme) {
+            foreach (MergeSiteSpecThemeSettingsAction::make()->differences($theme, $spec) as $change) {
+                $differences[] = sprintf('theme [%s] %s: %s -> %s', $spec->theme->key, $change->field, var_export($change->before, true), var_export($change->after, true));
+            }
+        }
+
+        throw_if($differences !== [], RuntimeException::class, (string) __('capell-core::message.site_spec_shared_rows_differ', [
+            'differences' => implode('; ', $differences),
+        ]));
+    }
+
     private function resolveLanguage(CapellSiteSpecData $spec): Language
     {
-        $language = Language::query()->where('code', $spec->language->code)->first()
+        $existing = Language::query()->where('code', $spec->language->code)->first();
+        $language = $existing
             ?? CreateDefaultLanguagesAction::run([$spec->language->code])->first()
             ?? throw new RuntimeException(sprintf('Language [%s] could not be resolved.', $spec->language->code));
 
-        $language->forceFill(Arr::only($spec->language->toArray(), ['name', 'locale', 'flag', 'default']))->save();
+        // An existing shared row only takes what the author wrote; a row created now takes every attribute.
+        $language->forceFill($existing instanceof Language
+            ? $spec->language->statedAttributes()
+            : Arr::only($spec->language->toArray(), CapellSiteSpecLanguageData::ATTRIBUTES))->save();
 
         return $language->refresh();
     }

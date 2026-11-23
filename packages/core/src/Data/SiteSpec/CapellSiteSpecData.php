@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Data\SiteSpec;
 
+use Override;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 
@@ -20,7 +21,7 @@ final class CapellSiteSpecData extends Data
         public readonly CapellSiteSpecThemeData $theme,
         #[DataCollectionOf(CapellSiteSpecPageData::class)]
         public readonly array $pages,
-        public readonly CapellSiteSpecLanguageData $language = new CapellSiteSpecLanguageData,
+        public readonly CapellSiteSpecLanguageData $language = new CapellSiteSpecLanguageData(stated: []),
         #[DataCollectionOf(CapellSiteSpecNavigationData::class)]
         public readonly array $navigations = [],
         public readonly CapellSiteSpecMediaData $media = new CapellSiteSpecMediaData,
@@ -29,6 +30,22 @@ final class CapellSiteSpecData extends Data
         public readonly string $initialVisibility = 'private',
         public readonly bool $acknowledgePublic = false,
     ) {}
+
+    /**
+     * A spec with no `language` states none of its attributes; see {@see CapellSiteSpecLanguageData::$stated}.
+     *
+     * @param  array<string, mixed>  $properties
+     * @return array<string, mixed>
+     */
+    #[Override]
+    public static function prepareForPipeline(array $properties): array
+    {
+        if (! array_key_exists('language', $properties)) {
+            $properties['language'] = ['stated' => []];
+        }
+
+        return $properties;
+    }
 
     /** @return array<string, array<int, string>> */
     public static function rules(): array

@@ -20,6 +20,10 @@ php artisan capell:site-spec-import storage/app/site-spec.json
 
 The path may be absolute or relative to the application working directory. The importer hashes the normalized contract; importing the same spec again returns the existing site instead of duplicating it.
 
+The spec's language and theme are shared by every site. Only the language attributes the spec states are compared or changed: a spec that names just `language.code` reuses the existing row untouched, and the spec's own defaults never count as a difference. An existing language or theme with the same values is reused. One whose values differ is not rewritten: the import lists each difference and stops before writing anything, and `--overwrite-shared` replaces the existing row. The install spec (`capell:install --spec`) and signed project-build manifests provision those rows over the seeded defaults, so they overwrite without the flag.
+
+A page's `meta` object is free-form, except for keys that have a field of their own: `robots`, `noindex`, `visibility` and `image_id` are refused, naming the field to use instead (`pages[].visibility`, `initialVisibility` for indexing, and `media.images`). A `meta.slug` is the slug the page is stored under when it differs from the slug other parts of the spec use to refer to it; it must match the pattern of `pages[].slug`, or be `/` for a home page. The JSON schema says the same.
+
 ## Apply to an existing site
 
 ```bash

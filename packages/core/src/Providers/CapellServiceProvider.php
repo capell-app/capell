@@ -269,6 +269,7 @@ use Capell\Core\Support\Publishing\ScheduledPublicationRegistry;
 use Capell\Core\Support\Redirects\PageUrlRedirectHitRecorder;
 use Capell\Core\Support\Redirects\PageUrlRedirectResolver;
 use Capell\Core\Support\Renderables\RenderableRegistry;
+use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
 use Capell\Core\Support\Runtime\RuntimeRoleResolver;
@@ -602,6 +603,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ),
             );
         }
+
+        RuntimeRoleBootstrap::assertConfigured(
+            $this->app,
+            $this->app->make(RuntimeRoleSelectionData::class),
+        );
 
         $this->app->singletonIf(RuntimeRoleProviderPolicy::class);
         $this->app->singletonIf(

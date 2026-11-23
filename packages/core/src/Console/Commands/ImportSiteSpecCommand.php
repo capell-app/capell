@@ -33,6 +33,7 @@ final class ImportSiteSpecCommand extends Command
         {--audit-private : List the existing imported pages without changing publication state}
         {--repair-private : Repair a legacy private import after reviewing its publication decisions}
         {--keep-published=* : Original spec slugs whose later publication decisions must be preserved}
+        {--overwrite-shared : When creating a new site, replace an existing language or theme (shared by every site) whose values differ from the spec; without it the import lists the differences and stops}
         {--site= : Apply the spec to this existing site (by ID) instead of creating a new one}
         {--plan : Show what applying the spec would create, update and leave alone, without writing anything}
         {--diff : Like --plan, and also show each changed field line by line, without writing anything}
@@ -64,7 +65,7 @@ final class ImportSiteSpecCommand extends Command
             $repair = (bool) $this->option('repair-private');
             $audit = (bool) $this->option('audit-private');
             throw_if(($audit && $repair) || ($keepPublished !== [] && ! $repair), RuntimeException::class, 'Use --keep-published with --repair-private; run --audit-private separately.');
-            $site = BuildSiteFromSpecFileAction::run($path, $repair, $keepPublished, $audit);
+            $site = BuildSiteFromSpecFileAction::run($path, $repair, $keepPublished, $audit, (bool) $this->option('overwrite-shared'));
         } catch (ValidationException $validationException) {
             $this->components->error((string) __('capell::message.site_spec_import_validation_failed'));
 

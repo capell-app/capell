@@ -46,7 +46,13 @@ final class CapellSiteSpecSchema
                             'type' => ['type' => 'string'], 'content' => ['type' => 'string', 'maxLength' => CapellSiteSpecConstraints::MAX_SECTION_CONTENT_LENGTH],
                             'title' => $nullableString, 'summary' => $nullableString, 'order' => ['type' => 'integer', 'default' => 0],
                             'meta' => ['type' => 'object'],
-                        ]]], 'visibility' => ['type' => 'object'], 'meta' => ['type' => 'object'],
+                        ]]], 'visibility' => ['type' => 'object'],
+                        'meta' => [
+                            'type' => 'object',
+                            'description' => 'Free-form page metadata. Keys listed under propertyNames have a field of their own: visibility, initialVisibility (indexing) and media.images. A slug, when given, is the slug the page is stored under.',
+                            'properties' => ['slug' => ['type' => 'string', 'pattern' => CapellSiteSpecConstraints::STORED_SLUG_PATTERN]],
+                            'propertyNames' => ['not' => ['enum' => CapellSiteSpecConstraints::RESERVED_PAGE_META_KEYS]],
+                        ],
                         'properties' => [
                             'type' => 'object',
                             'maxProperties' => CapellSiteSpecConstraints::MAX_PAGE_PROPERTIES,

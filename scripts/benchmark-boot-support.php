@@ -15,6 +15,7 @@ use Capell\Core\Providers\CapellServiceProvider;
 use Capell\Frontend\Providers\FrontendServiceProvider;
 use Capell\Installer\Providers\InstallerServiceProvider;
 use Capell\Marketplace\Providers\MarketplaceServiceProvider;
+use Capell\Tests\Support\RuntimeRoleBenchmarkProvider;
 use CodeWithDennis\FilamentSelectTree\FilamentSelectTreeServiceProvider;
 use Composer\InstalledVersions;
 use Filament\Actions\ActionsServiceProvider;
@@ -400,7 +401,7 @@ final readonly class BootBenchmarkWorkspace
             "  APP_KEY: 'base64:/MjiNkPfjAngJBfuMDsnFBxDynZGOKk3O6P0u0MhvJE='",
             "  CACHE_STORE: 'array'",
             'providers:',
-            ...array_map(static fn (string $provider): string => '  - ' . $provider, BootProfiles::providers($this->profile)),
+            ...array_map(static fn (string $provider): string => '  - ' . $provider, $this->workspaceProviders()),
             'dont-discover:',
             "  - '*'",
             'workbench:',
@@ -410,8 +411,20 @@ final readonly class BootBenchmarkWorkspace
         $this->files->dumpFile($this->path . '/testbench.yaml', implode(PHP_EOL, $yaml) . PHP_EOL);
         $this->files->dumpFile(
             $this->path . '/laravel/bootstrap/providers.php',
-            '<?php return ' . var_export(BootProfiles::providers($this->profile), return: true) . ';' . PHP_EOL,
+            '<?php return ' . var_export($this->workspaceProviders(), return: true) . ';' . PHP_EOL,
         );
+    }
+
+    /**
+     * Testbench's console builds a plain application that never runs
+     * RuntimeRoleBootstrap, so the role provider goes first and the profile's
+     * providers follow unchanged.
+     *
+     * @return list<class-string>
+     */
+    private function workspaceProviders(): array
+    {
+        return [RuntimeRoleBenchmarkProvider::class, ...BootProfiles::providers($this->profile)];
     }
 
     /** @param list<string> $arguments */

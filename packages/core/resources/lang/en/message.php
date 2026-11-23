@@ -55,6 +55,7 @@ return [
     'site_spec_publish_refused' => 'Nothing was published. These pages could not be published: :pages.',
     'site_spec_publish_complete' => '{1} Published :count page of ":name" (#:id) and cleared its caches.|[0,*] Published :count pages of ":name" (#:id) and cleared its caches.',
     'site_spec_publish_no_user' => 'Name the user to publish as with --user (an email address or ID).',
+    'site_spec_shared_rows_differ' => 'This spec would change a language or theme that other sites already use: :differences. No changes were made. Edit the spec to match the existing values, or re-run with --overwrite-shared to replace them.',
     'site_spec_options_conflict' => 'Use --plan, --diff, --site and --publish on their own, without the privacy audit and repair options. --plan and --diff cannot be combined with --publish.',
     'site_spec_diff_item' => ':kind ":key": :action',
     'site_spec_diff_field' => '  :field',
