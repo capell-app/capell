@@ -7,6 +7,10 @@ the `Update Changelog` workflow.
 
 ## Unreleased
 
+### Added
+
+- Packages can catalogue every outbound message, whatever the channel, through a neutral contract: a stable source key per message class and channel (with raw mail kept as its own unattributed source), the owning package resolved from installed manifests, and discovery of the Mailable and Notification classes in installed packages before they are sent.
+
 ### Fixed
 
 - A page whose type is set to never be cached no longer has its render data stored and reused between requests. Its content widgets are now built for every request, so output that depends on the visitor cannot reach another visitor.

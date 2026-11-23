@@ -1,0 +1,8 @@
+{
+    "name": "acme/alerts",
+    "autoload": {
+        "psr-4": {
+            "Acme\\OutboundAlerts\\": "src/"
+        }
+    }
+}
