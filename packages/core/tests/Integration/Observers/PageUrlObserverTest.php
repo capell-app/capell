@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Enums\UrlTypeEnum;
 use Capell\Core\Exceptions\PageUrlCollisionException;
+use Capell\Core\Exceptions\PageUrlSiteMismatchException;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
@@ -59,3 +60,51 @@ it('still rejects a typed URL colliding with its own canonical URL', function (U
         ->and($canonical->fresh()->url)->toBe('/canonical')
         ->and($typedUrl->fresh()->url)->toBe('/previous');
 })->with([UrlTypeEnum::Alias, UrlTypeEnum::Redirect]);
+
+it('refuses to re-point an existing URL at a page of another site and keeps the row unchanged', function (): void {
+    $pageA = Page::factory()->createOne();
+    $pageB = Page::factory()->createOne();
+    $url = PageUrl::factory()->page($pageA)->site($pageA->site)->language($pageA->site->language)->createOne(['url' => '/stays-put']);
+
+    expect(fn (): bool => $url->fill(['pageable_id' => $pageB->getKey()])->save())
+        ->toThrow(PageUrlSiteMismatchException::class)
+        ->and($url->fresh()->pageable_id)->toBe($pageA->getKey());
+});
+
+it('refuses a manual URL created for a page of another site', function (): void {
+    $pageA = Page::factory()->createOne();
+    $pageB = Page::factory()->createOne();
+
+    $create = fn (): PageUrl => PageUrl::query()->create([
+        'site_id' => $pageA->site_id,
+        'language_id' => $pageA->site->language_id,
+        'pageable_type' => $pageB->getMorphClass(),
+        'pageable_id' => $pageB->getKey(),
+        'url' => '/manual-cross-site',
+        'is_manual' => true,
+        'status' => true,
+    ]);
+
+    expect($create)->toThrow(PageUrlSiteMismatchException::class)
+        ->and(PageUrl::query()->where('url', '/manual-cross-site')->exists())->toBeFalse();
+});
+
+it('refuses a disabled URL that moves to a page of another site', function (): void {
+    $pageA = Page::factory()->createOne();
+    $pageB = Page::factory()->createOne();
+    $url = PageUrl::factory()->page($pageA)->site($pageA->site)->language($pageA->site->language)
+        ->createOne(['url' => '/disabled-url', 'status' => false]);
+
+    expect(fn (): bool => $url->fill(['pageable_id' => $pageB->getKey()])->save())
+        ->toThrow(PageUrlSiteMismatchException::class);
+});
+
+it('still lets a URL move to another page of the same site', function (): void {
+    $pageA = Page::factory()->createOne();
+    $sibling = Page::factory()->site($pageA->site)->createOne();
+    $url = PageUrl::factory()->page($pageA)->site($pageA->site)->language($pageA->site->language)->createOne(['url' => '/moves']);
+
+    $url->fill(['pageable_id' => $sibling->getKey()])->save();
+
+    expect($url->fresh()->pageable_id)->toBe($sibling->getKey());
+});

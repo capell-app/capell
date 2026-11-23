@@ -45,13 +45,27 @@ class RedirectPolicy
             && $this->canAccessRecord($user, $record);
     }
 
-    public function create(User $user): bool
+    /**
+     * @param  Model|null  $target  The page the new URL will point at, when the caller knows it.
+     */
+    public function create(User $user, ?Model $target = null): bool
     {
+        if ($target instanceof Model && ! $this->canPointAt($user, $target)) {
+            return false;
+        }
+
         return $user->checkPermissionTo(self::permission('create', $this->subject()));
     }
 
-    public function update(User $user, PageUrl $record): bool
+    /**
+     * @param  Model|null  $target  The page the URL is being re-pointed at, when the caller knows it.
+     */
+    public function update(User $user, PageUrl $record, ?Model $target = null): bool
     {
+        if ($target instanceof Model && ! $this->canPointAt($user, $target)) {
+            return false;
+        }
+
         $ownerDecision = $this->ownerAllows($user, $record, 'update');
 
         if ($ownerDecision !== null) {
@@ -163,6 +177,16 @@ class RedirectPolicy
         }
 
         return Gate::forUser($user)->check($ability, $owner);
+    }
+
+    /**
+     * Pointing a URL at a page makes it another address for that page, so the actor needs
+     * the same site access and edit right on the page that they would need to edit it.
+     */
+    private function canPointAt(User $user, Model $target): bool
+    {
+        return SiteAccess::forActor($user)->canUseRecord($target)
+            && Gate::forUser($user)->check('update', $target);
     }
 
     private function canAccessRecord(User $user, PageUrl $record): bool

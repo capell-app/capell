@@ -65,6 +65,17 @@ CAPELL_MARIADB_CONNECTION=mysql vendor/bin/pest --configuration=phpunit.mariadb.
 
 The same file declares the package admission lock proofs (`packages/core/tests/MariaDB/PackageAdmissionConcurrencyTest.php`), run against the same `capell_editor_race_test` database. They prove that a disable, uninstall or quarantine waits for admitted work to commit, that admission waits for an in-flight disable and then refuses, and that rolled-back work releases the lock.
 
+## Keys Of Any Model On The mariadb Driver
+
+Laravel's `mariadb` driver creates `uuid()` and `uuidMorphs()` columns as MariaDB's native UUID type. That type refuses a numeric key and cannot be compared with a numeric column (error 4078), while SQLite and the `mysql` driver create text and accept both. A column that holds the key of any model, numeric or UUID, must therefore be a string: use `string('owner_id', 36)` or `char('owner_id', 36)`, and keep `uuid()` for values that are always UUIDs.
+
+Core migration `2026_11_22_000010_store_asset_attachment_keys_as_text` converts the `related_id` and `asset_id` columns of `asset_attachments` to `CHAR(36)` where they are native UUID columns, and leaves every other driver untouched. Its proof (`packages/core/tests/MariaDB/AssetAttachmentKeysTest.php`) is declared in `phpunit.mariadb.xml` and needs a disposable MariaDB server:
+
+```bash
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_USERNAME=root DB_PASSWORD=secret \
+CAPELL_MARIADB_CONNECTION=mariadb vendor/bin/pest --configuration=phpunit.mariadb.xml --testsuite=MariaDBAssetAttachmentKeys
+```
+
 Hosted CI runs the whole of `phpunit.mariadb.xml` against MariaDB 10.11 in the merge queue, on `main` and nightly (`.github/workflows/mariadb-suite.yml`). When a migration adds a table, record it in both `main-default.json` and `main-mariadb-default.json` under `packages/core/tests/fixtures/table-naming/`; the ordinary suite fails while the two list different tables.
 
 ## Extension Lifecycle Ledger

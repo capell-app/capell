@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Actions\Users;
 
-use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Data\Users\UserInvitationData;
 use Capell\Admin\Enums\RolePreset;
 use Capell\Admin\Filament\Pages\Auth\AcceptInvitation;
@@ -141,11 +140,8 @@ final class InviteUserAction
 
             $user->assignRole($role);
 
-            // Shield admits people to the panel through this role. Its own
-            // assign-on-create hook skips console runs, so assign it here too.
-            if (Utils::isPanelUserRoleEnabled() && method_exists($user, 'hasRole') && ! $user->hasRole(Utils::getPanelUserRoleName())) {
-                $user->assignRole(Role::findOrCreate(Utils::getPanelUserRoleName(), $role->guard_name));
-            }
+            // Shield admits people to the panel through this role, and its assign-on-create hook is off by default.
+            GrantPanelAccessAction::run($user, $role->guard_name);
 
             return $user;
         });

@@ -44,10 +44,6 @@ class SeedDefaultRolesAction
 
     private function seedPanelUser(): void
     {
-        if (! Utils::isPanelUserRoleEnabled()) {
-            return;
-        }
-
         Role::findOrCreate(
             Utils::getPanelUserRoleName(),
             (string) config('auth.defaults.guard', 'web'),

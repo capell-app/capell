@@ -95,6 +95,7 @@ use Capell\Frontend\Http\Middleware\DetectVisitorLanguage;
 use Capell\Frontend\Http\Middleware\ETagMiddleware;
 use Capell\Frontend\Http\Middleware\NullWorkspaceContextMiddleware;
 use Capell\Frontend\Http\Middleware\PreventAuthenticatedFrontendRenderingWhenHtmlCacheable;
+use Capell\Frontend\Http\Middleware\RefuseLivewireUpdatesWhileUnavailable;
 use Capell\Frontend\Http\Middleware\RenderingStrategyMiddleware;
 use Capell\Frontend\Http\Middleware\ResolveFrontendMiddleware;
 use Capell\Frontend\Http\Middleware\ServeStaticMaintenancePage;
@@ -218,6 +219,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\View\FileViewFinder;
+use Livewire\Livewire;
 use Override;
 use RuntimeException;
 use Spatie\LaravelPackageTools\Package;
@@ -472,6 +474,7 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             ->registerBladeComponents()
             ->registerBlazeOptimizedComponentViews()
             ->registerFrontendLivewireComponents()
+            ->registerLivewireUpdateAvailabilityGuard()
             ->registerBladeDirectives()
             ->registerPaginateRoute()
             ->configureVite()
@@ -622,6 +625,14 @@ final class FrontendServiceProvider extends AbstractPackageServiceProvider
             base_path('vendor/michaloravec/laravel-paginateroute/resources/lang'),
             'paginateroute',
         );
+
+        return $this;
+    }
+
+    /** Public component updates are replayed through the lockdown and maintenance guard of the page that rendered them. */
+    private function registerLivewireUpdateAvailabilityGuard(): self
+    {
+        Livewire::addPersistentMiddleware([RefuseLivewireUpdatesWhileUnavailable::class]);
 
         return $this;
     }
