@@ -25,6 +25,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Jobs\RunMarketplaceInstallAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Models\MarketplaceInstallAttemptEvent;
+use Capell\Marketplace\Tests\Support\FakeMarketplaceListings;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Support\Facades\Cache;
@@ -482,6 +483,7 @@ it('keeps a local Composer failure classification despite earlier deployment fai
 
 it('creates retries as fresh queued attempts without mutating terminal history', function (): void {
     Queue::fake();
+    FakeMarketplaceListings::free();
     $source = lifecycleAttempt(MarketplaceInstallIntentStatus::Failed, [
         'failure_reason' => 'Composer failed.',
         'failure_type' => MarketplaceInstallFailureType::Unknown->value,
@@ -572,6 +574,7 @@ it('does not create a retry while another process holds the shared composer oper
 
 it('allows only one active retry for a terminal attempt', function (): void {
     Queue::fake();
+    FakeMarketplaceListings::free();
     $source = lifecycleAttempt(MarketplaceInstallIntentStatus::Failed);
     $retry = RetryMarketplaceInstallAttemptAction::run($source);
 
@@ -586,6 +589,7 @@ it('allows only one active retry for a terminal attempt', function (): void {
 
 it('does not dispatch a retry when cancellation commits after retry preflight', function (): void {
     Queue::fake();
+    FakeMarketplaceListings::free();
     $source = lifecycleAttempt(MarketplaceInstallIntentStatus::Failed);
 
     Event::listen(

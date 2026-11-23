@@ -115,6 +115,7 @@ final class CreateExtensionUpdateAcquisitionAction
             releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
             releaseContentSha256: $listing->releaseContentSha256,
             releaseDigests: $listing->releaseDigests,
+            expiresAt: $authorization->expiresAt,
         );
     }
 
