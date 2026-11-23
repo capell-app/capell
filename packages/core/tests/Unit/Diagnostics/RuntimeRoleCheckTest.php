@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Data\Runtime\RuntimeRoleSelectionData;
 use Capell\Core\Enums\RuntimeRole;
 use Capell\Core\Support\Diagnostics\Checks\RuntimeRoleCheck;
+use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
@@ -56,7 +57,7 @@ it(
      * @param  array<class-string, bool>  $loadedProviders
      * @param  list<string>  $expectedErrors
      */
-    function (RuntimeRole $role, array $providers, array $loadedProviders, array $expectedErrors): void {
+    function (RuntimeRole $role, array $providers, array $loadedProviders, array $expectedErrors, bool $bootstrapped = true): void {
         $files = new Filesystem;
         $basePath = sys_get_temp_dir() . '/capell-runtime-role-doctor-' . bin2hex(random_bytes(6));
         $files->ensureDirectoryExists($basePath . '/bootstrap/cache/capell-runtime/' . $role->value);
@@ -149,6 +150,11 @@ it(
 
         $application->instance(PackageManifest::class, $manifest);
 
+        if ($bootstrapped) {
+            // The host called RuntimeRoleBootstrap::configure($app); an unconfigured host is its own case below.
+            $application->instance(RuntimeRoleBootstrap::CONFIGURED_MARKER, true);
+        }
+
         try {
             $result = new RuntimeRoleCheck(
                 application: $application,
@@ -213,6 +219,13 @@ it(
         [AuthoringRuntimeRoleProvider::class, FrontendServiceProvider::class],
         [AuthoringRuntimeRoleProvider::class => true, FrontendServiceProvider::class => false],
         ['Frontend is not loaded in the authoring process, so authenticated previews cannot use the public renderer.'],
+    ],
+    'authoring role recorded but the host bootstrap never ran' => [
+        RuntimeRole::Authoring,
+        [FrontendServiceProvider::class],
+        [FrontendServiceProvider::class => true],
+        ['RuntimeRoleBootstrap::configure($app) has not run in bootstrap/app.php, so the role is recorded but not enforced.'],
+        false,
     ],
     'authoring rejects empty provider lists' => [
         RuntimeRole::Authoring,

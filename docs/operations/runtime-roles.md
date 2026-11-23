@@ -33,6 +33,8 @@ return $app;
 
 Custom application bootstraps are reported as customised instead of being rewritten. Apply the equivalent call after `create()` and before a kernel bootstraps the application.
 
+The call is what enforces the role. When `CAPELL_RUNTIME_ROLE` is `public` or `authoring` and the call has not run, Capell refuses to boot with a message naming the line to add, instead of carrying on as a combined node with the admin, installer and marketplace providers loaded. `php artisan capell:doctor` still runs on such a node and reports the missing call, so you can inspect it. Setting `CAPELL_RUNTIME_ROLE=combined` needs no bootstrap call.
+
 ## Build and deploy
 
 Set `CAPELL_RUNTIME_ROLE` in the real process environment, not per request. Build all selected roles into the same immutable release:

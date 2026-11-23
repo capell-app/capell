@@ -7,6 +7,7 @@ namespace Capell\Core\Support\Diagnostics\Checks;
 use Capell\Core\Data\Diagnostics\DoctorCheckResultData;
 use Capell\Core\Enums\Diagnostics\DoctorCheckSeverity;
 use Capell\Core\Enums\RuntimeRole;
+use Capell\Core\Support\Runtime\RuntimeRoleBootstrap;
 use Capell\Core\Support\Runtime\RuntimeRoleCachePaths;
 use Capell\Core\Support\Runtime\RuntimeRolePackageManifest;
 use Capell\Core\Support\Runtime\RuntimeRoleProviderPolicy;
@@ -99,6 +100,10 @@ final class RuntimeRoleCheck extends AbstractDoctorCheck
 
         $errors = $this->sourceHashErrors($metadata);
         $errors = [...$errors, ...$this->cachePathErrors($role)];
+
+        if ($role !== RuntimeRole::Combined && ! RuntimeRoleBootstrap::isConfigured($this->application)) {
+            $errors[] = 'RuntimeRoleBootstrap::configure($app) has not run in bootstrap/app.php, so the role is recorded but not enforced.';
+        }
 
         if (! $this->application->bound(PackageManifest::class)
             || ! $this->application->make(PackageManifest::class) instanceof RuntimeRolePackageManifest) {
