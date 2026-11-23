@@ -9,6 +9,7 @@ use Capell\Core\Enums\ExtensionContributionReceiptType;
 use Capell\Frontend\Http\Middleware\RefuseLivewireUpdatesWhileUnavailable;
 use Capell\Frontend\Http\Middleware\RejectReservedFrontendDomains;
 use Capell\Frontend\Http\Middleware\RejectReservedFrontendPaths;
+use Capell\Frontend\Http\Middleware\SecurityResponseHeaders;
 
 final class FrontendRouteMiddlewareRegistry
 {
@@ -26,6 +27,8 @@ final class FrontendRouteMiddlewareRegistry
      * @var list<class-string|string>
      */
     private array $middleware = [
+        // Outermost, so rejections, redirects and cached responses carry the headers too.
+        SecurityResponseHeaders::class,
         RejectReservedFrontendDomains::class,
         RejectReservedFrontendPaths::class,
         'frontend.language_detect',

@@ -50,3 +50,27 @@ it('renders one banner variant per active hydrated language without queries', fu
         $connection->disableQueryLog();
     }
 });
+
+it('only lets a same-origin url become the revert link from the origin cookie', function (): void {
+    $english = new Language(['name' => 'English', 'code' => 'en', 'locale' => 'en_GB']);
+    $english->id = 1;
+
+    $arabic = new Language(['name' => 'Arabic', 'code' => 'ar']);
+    $arabic->id = 2;
+
+    $site = new Site;
+    $site->setRelation('siteDomains', new Collection([
+        new SiteDomain(['status' => true])->setRelation('language', $english),
+        new SiteDomain(['status' => true])->setRelation('language', $arabic),
+    ]));
+    resolve(FrontendState::class)->withSite($site)->withLanguage($english);
+    $this->mock(FrontendSettingsReaderInterface::class)
+        ->shouldReceive('visitorLanguageDetection')->andReturn(VisitorLanguageDetection::Redirect);
+
+    $html = Blade::render('<x-capell::language-suggestion-banner />');
+
+    expect($html)
+        ->toContain('function sameOriginUrl(')
+        ->toContain('reveal(variant, revert, sameOriginUrl(originUrl))')
+        ->not->toContain('reveal(variant, revert, originUrl)');
+});

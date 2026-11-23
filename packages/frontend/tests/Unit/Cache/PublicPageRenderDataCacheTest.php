@@ -36,6 +36,7 @@ use Capell\Frontend\Support\Render\PublicRenderDataContributorRegistry;
 use Capell\Frontend\Support\State\FrontendState;
 use Capell\Frontend\Tests\Fixtures\RecordingRenderedModelTracker;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 
@@ -61,6 +62,38 @@ it('builds deterministic render data cache keys from page site language strategy
         ->and($key)->toContain('site-' . $site->id)
         ->and($key)->toContain('lang-' . $language->id)
         ->and($key)->toContain('strategy-blade');
+});
+
+it('keeps render data cache entries separate per request origin and retires every origin on invalidation', function (): void {
+    $page = Page::factory()
+        ->withTranslations()
+        ->createOne();
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $context = new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: Layout::query()->find($page->layout_id),
+        theme: $site->theme,
+        runtimeManifest: FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly),
+    );
+    $cache = resolve(PublicPageRenderDataCache::class);
+    $keyFor = static fn (string $url): ?string => (function () use ($cache, $context, $url): ?string {
+        app()->instance('request', Request::create($url));
+
+        return $cache->keyForContext($context);
+    })();
+
+    $first = $keyFor('https://one.example.test/page');
+
+    expect($keyFor('https://one.example.test/other'))->toBe($first)
+        ->and($keyFor('https://two.example.test/page'))->not->toBe($first)
+        ->and($keyFor('http://one.example.test/page'))->not->toBe($first);
+
+    $cache->invalidate($page::class, (int) $page->getKey(), (int) $site->getKey(), (int) $language->getKey());
+
+    expect($keyFor('https://one.example.test/page'))->not->toBe($first);
 });
 
 it('isolates render data cache entries for theme previews', function (): void {

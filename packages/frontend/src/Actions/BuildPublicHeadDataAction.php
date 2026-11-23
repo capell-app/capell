@@ -319,7 +319,17 @@ final class BuildPublicHeadDataAction
 
             $files = [];
             foreach ($font['files'] as $file) {
-                $files[] = sprintf("url('%s') format('%s')", asset('storage/' . $file), $resolver->getFontFileType($file));
+                $url = is_string($file) ? HeadContentSanitizer::cssUrl(asset('storage/' . $file)) : null;
+
+                if ($url === null) {
+                    continue;
+                }
+
+                $files[] = sprintf("url('%s') format('%s')", $url, $resolver->getFontFileType($file));
+            }
+
+            if ($files === []) {
+                continue;
             }
 
             $localFonts[] = [

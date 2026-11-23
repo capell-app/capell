@@ -29,5 +29,7 @@ final class ExtensionAcquisitionData extends Data
         public ?string $releaseContentSha256 = null,
         /** @var array<string, array<string, string>>|null Per-version digests, normalised by ReleaseDigestMapData. */
         public ?array $releaseDigests = null,
+        /** When the Marketplace says this authorisation (and its credentials) stop being valid. */
+        public ?string $expiresAt = null,
     ) {}
 }

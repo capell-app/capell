@@ -55,6 +55,22 @@ final class RetryMarketplaceInstallAttemptAction
                 );
             }
 
+            // The failed attempt's constraint, eligibility and registry
+            // credentials are a snapshot of what the Marketplace said back
+            // then. Ask again now, and run only on the fresh answer.
+            $denial = ReauthoriseMarketplaceRetryAction::run($retry);
+
+            if ($denial !== null) {
+                return TransitionMarketplaceInstallAttemptAction::run(
+                    $retry,
+                    new MarketplaceInstallAttemptTransitionData(
+                        toStatus: MarketplaceInstallIntentStatus::Failed,
+                        failureReason: $denial,
+                        failureStage: MarketplaceInstallFailureStage::Preflight,
+                    ),
+                );
+            }
+
             // Routed by the attempt's own operation. A retry repeats what was
             // asked for; it does not get to decide that a failed uninstall was
             // really an install.
@@ -161,7 +177,9 @@ final class RetryMarketplaceInstallAttemptAction
                 versionConstraint: $source->version_constraint,
                 requestedOptions: $source->requested_options ?? [],
                 eligibility: $source->eligibility ?? [],
-                context: $source->context ?? [],
+                // Credentials are never copied: the retry is given fresh ones by
+                // ReauthoriseMarketplaceRetryAction or runs without any.
+                context: $this->contextWithoutCredentials($source->context ?? []),
                 deployment: $source->deployment ?? [],
                 idempotencyKey: Str::uuid()->toString(),
                 retryOfId: (int) $source->getKey(),
@@ -188,6 +206,17 @@ final class RetryMarketplaceInstallAttemptAction
 
             return $retry;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function contextWithoutCredentials(array $context): array
+    {
+        unset($context['composer_auth_encrypted'], $context['signed_activation_encrypted']);
+
+        return $context;
     }
 
     private function throwDuplicateActiveInstall(string $composerName): never

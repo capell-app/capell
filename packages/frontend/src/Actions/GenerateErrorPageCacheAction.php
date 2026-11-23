@@ -22,6 +22,9 @@ use Capell\Frontend\Support\Error\ErrorPageManifestStore;
 use Capell\Frontend\Support\Error\ErrorPagePathResolver;
 use Capell\Frontend\Support\Error\ErrorPageRegenerationScope;
 use Capell\Frontend\Support\State\FrontendState;
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\Facades\Date;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -63,12 +66,11 @@ final class GenerateErrorPageCacheAction
         );
         $entries = [];
         $fallbackEntries = [];
-        $logoUrl = $this->logoUrl($site);
 
         // The rules these pages are rendered under; checked again as each is written.
         $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp((int) $site->getKey());
 
-        $site->siteDomains->each(function (SiteDomain $siteDomain) use ($page, $site, $store, $builtUnder, $logoUrl, &$entries, &$fallbackEntries): void {
+        $site->siteDomains->each(function (SiteDomain $siteDomain) use ($page, $site, $store, $builtUnder, &$entries, &$fallbackEntries): void {
             $language = $siteDomain->language ?? $site->language;
 
             if (! $language instanceof Language) {
@@ -76,11 +78,12 @@ final class GenerateErrorPageCacheAction
             }
 
             $statusCopy = $this->statusCopy($page, $language);
+            $logoUrl = $this->underOriginOf($siteDomain, fn (): string => $this->logoUrl($site));
 
             foreach (ErrorPageStatusEnum::cases() as $status) {
                 $copyForStatus = $statusCopy[(int) $status->value] ?? null;
 
-                $html = $this->renderHtml($site, $page, $siteDomain, $language, $copyForStatus);
+                $html = $this->underOriginOf($siteDomain, fn (): string => $this->renderHtml($site, $page, $siteDomain, $language, $copyForStatus));
                 $path = $this->pathResolver->pathForDomainAndStatus($siteDomain, $status->value);
 
                 // Served without Laravel: written only if the public-read rules
@@ -153,6 +156,34 @@ final class GenerateErrorPageCacheAction
         }
 
         return $normalized;
+    }
+
+    /**
+     * Regeneration runs inside whatever request changed the site (usually an administrator's),
+     * and these artefacts are served to the public on the domain they were built for. Build
+     * them as a request to that domain so asset and root URLs carry its origin, not the
+     * administrator's, then put the triggering request back.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    private function underOriginOf(SiteDomain $siteDomain, Closure $callback): mixed
+    {
+        $previous = request();
+        $urls = resolve(UrlGenerator::class);
+        $domainRequest = Request::create($siteDomain->root_url . '/');
+
+        app()->instance('request', $domainRequest);
+        $urls->setRequest($domainRequest);
+
+        try {
+            return $callback();
+        } finally {
+            app()->instance('request', $previous);
+            $urls->setRequest($previous);
+        }
     }
 
     private function logoUrl(Site $site): string

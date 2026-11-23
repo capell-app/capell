@@ -24,6 +24,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Notifications\MarketplaceInstallOperationFailedNotification;
+use Capell\Marketplace\Tests\Support\FakeMarketplaceListings;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Filament\Notifications\BroadcastNotification;
 use Illuminate\Support\Facades\Event;
@@ -178,6 +179,7 @@ it('infers marketplace install failure stage and type from operation diagnostics
 it('retries by creating a linked attempt without mutating the failed source attempt', function (): void {
     Notification::fake();
     Queue::fake();
+    FakeMarketplaceListings::free();
 
     $failedAttempt = marketplaceDebugAttempt([
         'status' => MarketplaceInstallIntentStatus::Failed,

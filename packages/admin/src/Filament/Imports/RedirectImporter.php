@@ -7,6 +7,7 @@ namespace Capell\Admin\Filament\Imports;
 use Capell\Admin\Actions\Transfers\EnsureImportOwnerAdmittedAction;
 use Capell\Admin\Filament\Components\Forms\LanguageSelect;
 use Capell\Admin\Filament\Components\Forms\SiteSelect;
+use Capell\Admin\Support\Csv\CsvCell;
 use Capell\Admin\Support\Enums\EnumPresentationRegistry;
 use Capell\Core\Actions\Redirects\ValidateRedirectAction;
 use Capell\Core\Enums\RedirectStatusCodeEnum;
@@ -36,12 +37,14 @@ class RedirectImporter extends Importer
         return [
             ImportColumn::make('url')
                 ->label(__('capell-admin::form.source_url'))
+                ->castStateUsing(fn (mixed $state): mixed => CsvCell::restore($state))
                 ->requiredMapping()
                 ->rules(['required'])
                 ->guess(['source_url', 'source_path', 'from', 'source']),
 
             ImportColumn::make('target_url')
                 ->label(__('capell-admin::form.target_url'))
+                ->castStateUsing(fn (mixed $state): mixed => CsvCell::restore($state))
                 ->requiredMapping()
                 ->rules(['required'])
                 ->guess(['target_url', 'target_path', 'to', 'target', 'destination']),
@@ -54,6 +57,7 @@ class RedirectImporter extends Importer
 
             ImportColumn::make('notes')
                 ->label(__('capell-admin::form.notes'))
+                ->castStateUsing(fn (mixed $state): mixed => CsvCell::restore($state))
                 ->ignoreBlankState()
                 ->guess(['note', 'comment', 'comments']),
         ];

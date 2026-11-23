@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Admin\Filament\Exports;
 
+use Capell\Admin\Support\Csv\CsvCell;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Support\Permissions\SiteAccess;
 use Filament\Actions\Exports\ExportColumn;
@@ -20,10 +21,12 @@ class RedirectExporter extends Exporter
     {
         return [
             ExportColumn::make('url')
-                ->label(__('capell-admin::table.source_url')),
+                ->label(__('capell-admin::table.source_url'))
+                ->formatStateUsing(fn (mixed $state): string => CsvCell::neutralise($state)),
 
             ExportColumn::make('target_url')
-                ->label(__('capell-admin::table.target_url')),
+                ->label(__('capell-admin::table.target_url'))
+                ->formatStateUsing(fn (mixed $state): string => CsvCell::neutralise($state)),
 
             ExportColumn::make('status_code')
                 ->label(__('capell-admin::table.status_code'))
@@ -38,10 +41,12 @@ class RedirectExporter extends Exporter
                 ->formatStateUsing(fn (PageUrl $record): string => $record->is_manual ? 'yes' : 'no'),
 
             ExportColumn::make('site.name')
-                ->label(__('capell-admin::form.site')),
+                ->label(__('capell-admin::form.site'))
+                ->formatStateUsing(fn (mixed $state): string => CsvCell::neutralise($state)),
 
             ExportColumn::make('language.name')
-                ->label(__('capell-admin::form.language')),
+                ->label(__('capell-admin::form.language'))
+                ->formatStateUsing(fn (mixed $state): string => CsvCell::neutralise($state)),
 
             ExportColumn::make('hit_count')
                 ->label(__('capell-admin::table.hit_count')),
@@ -50,7 +55,8 @@ class RedirectExporter extends Exporter
                 ->label(__('capell-admin::table.last_hit_at')),
 
             ExportColumn::make('notes')
-                ->label(__('capell-admin::form.notes')),
+                ->label(__('capell-admin::form.notes'))
+                ->formatStateUsing(fn (mixed $state): string => CsvCell::neutralise($state)),
 
             ExportColumn::make('created_at'),
         ];
