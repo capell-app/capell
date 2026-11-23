@@ -18,6 +18,6 @@ final class SiteHasRetainedRecordsException extends RuntimeException
             $retained,
         ));
 
-        return new self('This site cannot be permanently deleted because it holds records that must be kept: ' . $kinds . '. Release them or move them to another site first.');
+        return new self((string) __('capell::message.site_has_retained_records', ['records' => $kinds]));
     }
 }
