@@ -17,6 +17,7 @@ use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
+use Override;
 
 final class MarketplacePackageOperationsAlertFilamentWidget extends Widget implements CapellFilamentWidgetContract
 {
@@ -33,6 +34,17 @@ final class MarketplacePackageOperationsAlertFilamentWidget extends Widget imple
     protected int|string|array $columnSpan = ['default' => 'full'];
 
     protected static ?int $sort = 18;
+
+    /**
+     * Operations name extensions and carry failure excerpts, so only people who
+     * can manage extensions see the widget. An empty role list means "anyone"
+     * to the shared gate, which is not what this widget wants.
+     */
+    #[Override]
+    public static function canView(): bool
+    {
+        return ExtensionsPage::canManageExtensions() && self::canViewCheck();
+    }
 
     #[Computed]
     public function operations(): Collection
