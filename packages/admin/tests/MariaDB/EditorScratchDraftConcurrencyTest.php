@@ -45,6 +45,8 @@ it('serialises editor scratch saves behind the agent page lock', function (): vo
         $user = test()->actingAsUser()->authenticatedUser();
         Gate::before(static fn (): bool => true);
         $page = Page::factory()->withTranslations()->createOne();
+        // The save re-reads the page through the editor's site access, so the editor needs its site.
+        $user->assignedSiteIds = collect([(int) $page->site_id]);
         $context = 'page-editor:' . Str::uuid();
         $input = new PageEditorScratchDraftInputData($page, $user, app()->getLocale(), ['name' => 'Concurrent'], $context);
         DB::connection()->statement('SET SESSION innodb_lock_wait_timeout=1');

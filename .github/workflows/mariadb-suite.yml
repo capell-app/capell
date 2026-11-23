@@ -1,0 +1,78 @@
+name: MariaDB proofs
+
+# Runs the opt-in proofs in phpunit.mariadb.xml against MariaDB 10.11, the engine production
+# runs. They need a real server (row locks on separate connections, legacy timestamp
+# semantics, the mariadb driver's native UUID columns), so the SQLite suites cannot run them.
+# It runs in the merge queue and after merges to main rather than on every PR push, and
+# nightly so a change in the mariadb image is caught within a day. Run it by hand with
+# workflow_dispatch; docs/packages/database-and-migrations.md has the local commands.
+
+on:
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '11 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mariadb-suite-${{ github.event.merge_group.head_sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  mariadb-proofs:
+    name: Opt-in proofs on MariaDB 10.11
+    runs-on: ubuntu-latest
+    # A hang ceiling only, never a speed assertion.
+    timeout-minutes: 20
+    env:
+      CACHE_STORE: array
+      PAO_DISABLE: 1
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          # The lock proofs refuse any database but this disposable one.
+          MARIADB_DATABASE: capell_editor_race_test
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          extensions: curl, dom, fileinfo, gd, intl, json, libxml, mbstring, pdo_mysql, pdo_sqlite, simplexml, sqlite3, zip
+          tools: composer:v2
+          coverage: none
+      # The same two steps as the release smoke's product gates, which run tests after them.
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --no-scripts --no-plugins
+      - name: Prepare the PHP autoloader
+        run: composer dump-autoload --no-interaction
+      - name: Run the MariaDB proofs
+        env:
+          # The lock proofs use the default connection through the mysql driver, as production
+          # does. The proofs that name their connection use the mariadb driver, so its native
+          # UUID columns are exercised too.
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
+          DB_DATABASE: capell_editor_race_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          CAPELL_MARIADB_CONNECTION: mariadb
+        run: vendor/bin/pest --configuration=phpunit.mariadb.xml
