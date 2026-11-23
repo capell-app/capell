@@ -119,6 +119,7 @@ final class CreateExtensionAcquisitionAction
             releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
             releaseContentSha256: $listing->releaseContentSha256,
             releaseDigests: $listing->releaseDigests,
+            expiresAt: $authorization->expiresAt,
         );
 
         if ($this->authorizationPolicy->blocksInstall($authorization->installEligibilityPolicy)) {

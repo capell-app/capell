@@ -37,14 +37,20 @@ final class CreateExtensionUpdateAcquisitionAction
         private readonly MarketplaceInstallAuthorizationPolicy $authorizationPolicy,
     ) {}
 
-    public function handle(ExtensionListingData $listing, string $currentVersion): ExtensionAcquisitionData
+    /**
+     * @param  bool  $unattended  Nobody is watching this update run (the auto-updater). The constraint is
+     *                            then the exact version the listing advertises, and any other constraint
+     *                            is refused here, before anything is queued for Composer. An operator who
+     *                            asks for an update themselves keeps the bounded `^` range.
+     */
+    public function handle(ExtensionListingData $listing, string $currentVersion, bool $unattended = false): ExtensionAcquisitionData
     {
         $this->assertUpdateAllowed($listing);
         MarketplaceComposerCoordinates::assertValid($listing->composerName, '*');
 
         if (! $this->authorizationPolicy->requiresAuthorization($listing)) {
-            $versionConstraint = $this->latestVersionConstraint($listing);
-            AssertMarketplaceUpdateConstraintAction::assertStrictConstraint($versionConstraint);
+            $versionConstraint = $this->latestVersionConstraint($listing, $unattended);
+            $this->assertConstraint($versionConstraint, $listing, $unattended);
             MarketplaceComposerCoordinates::assertUpgrade($listing->composerName, $versionConstraint, $currentVersion);
 
             return new ExtensionAcquisitionData(
@@ -89,9 +95,9 @@ final class CreateExtensionUpdateAcquisitionAction
         $composerName = $authorization->composerName !== '' ? $authorization->composerName : $listing->composerName;
         $versionConstraint = $authorization->versionConstraint !== ''
             ? $authorization->versionConstraint
-            : $this->latestVersionConstraint($listing);
+            : $this->latestVersionConstraint($listing, $unattended);
 
-        AssertMarketplaceUpdateConstraintAction::assertStrictConstraint($versionConstraint);
+        $this->assertConstraint($versionConstraint, $listing, $unattended);
         MarketplaceComposerCoordinates::assertUpgrade($composerName, $versionConstraint, $currentVersion);
 
         return new ExtensionAcquisitionData(
@@ -109,7 +115,37 @@ final class CreateExtensionUpdateAcquisitionAction
             releaseChecksumVersion: $listing->releaseChecksumVersion ?? $listing->latestVersion,
             releaseContentSha256: $listing->releaseContentSha256,
             releaseDigests: $listing->releaseDigests,
+            expiresAt: $authorization->expiresAt,
         );
+    }
+
+    private function assertConstraint(string $versionConstraint, ExtensionListingData $listing, bool $unattended): void
+    {
+        if ($unattended) {
+            $this->assertUnattendedPin($versionConstraint, $listing);
+        }
+
+        AssertMarketplaceUpdateConstraintAction::assertStrictConstraint($versionConstraint);
+    }
+
+    /**
+     * The pin must be the advertised latest version, and when the listing
+     * advertises a release digest for a version, that same one. A digest for
+     * one version beside a constraint that resolves another proves nothing.
+     */
+    private function assertUnattendedPin(string $versionConstraint, ExtensionListingData $listing): void
+    {
+        if ($listing->latestVersion === null || $listing->latestVersion === '') {
+            throw ValidationException::withMessages([
+                'version_constraint' => __('capell-marketplace::marketplace.errors.unattended_update_no_version'),
+            ]);
+        }
+
+        AssertMarketplaceUpdateConstraintAction::assertExactVersion($versionConstraint, $listing->latestVersion);
+
+        if ($listing->releaseChecksumVersion !== null && $listing->releaseChecksumVersion !== '') {
+            AssertMarketplaceUpdateConstraintAction::assertExactVersion($versionConstraint, $listing->releaseChecksumVersion);
+        }
     }
 
     /**
@@ -146,8 +182,12 @@ final class CreateExtensionUpdateAcquisitionAction
         }
     }
 
-    private function latestVersionConstraint(ExtensionListingData $listing): string
+    private function latestVersionConstraint(ExtensionListingData $listing, bool $unattended = false): string
     {
-        return $listing->latestVersion !== null ? '^' . $listing->latestVersion : '*';
+        if ($listing->latestVersion === null) {
+            return '*';
+        }
+
+        return ($unattended ? '' : '^') . $listing->latestVersion;
     }
 }

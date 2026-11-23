@@ -28,6 +28,7 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
 use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Tests\Support\FakeMarketplaceListings;
 use Capell\Marketplace\Tests\Support\RecordingMarketplaceComposerRunner;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
@@ -95,11 +96,33 @@ it('rejects unsafe persisted updates and retries using the installed version und
 
     try {
         if ($retry) {
+            // A retry no longer carries the stored constraint forward: it asks
+            // the marketplace again. The marketplace's newest version is not
+            // newer than what is installed, so there is nothing to retry and
+            // Composer is never reached.
+            FakeMarketplaceListings::free($installed);
+            // The operation-lock assertion above belongs to the job; a retry
+            // looks the version up before any lock exists.
+            app()->instance(MarketplaceInstalledPackageVersionResolver::class, new readonly class($installed) implements MarketplaceInstalledPackageVersionResolver
+            {
+                public function __construct(private string $version) {}
+
+                #[Override]
+                public function prettyVersion(string $composerName): string
+                {
+                    return $this->version;
+                }
+            });
             $source = $attempt;
             $attempt = RetryMarketplaceInstallAttemptAction::run($source);
+
             expect($attempt->retry_of_id)->toBe($source->getKey())
-                ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Queued);
-            Queue::assertPushed(RunMarketplaceUpdateAttemptJob::class);
+                ->and($attempt->status)->toBe(MarketplaceInstallIntentStatus::Failed)
+                ->and($attempt->failure_reason)->toContain((string) __('capell-marketplace::marketplace.updates.no_update_available', ['package' => UPDATE_PACKAGE_NAME]));
+            Queue::assertNothingPushed();
+            expect($composer->ran())->toBeFalse();
+
+            return;
         }
 
         new RunMarketplaceUpdateAttemptJob((int) $attempt->getKey())->handle($composer);

@@ -9,6 +9,7 @@ use Capell\Marketplace\Actions\BuildMarketplaceOperationsDoctorReportAction;
 use Capell\Marketplace\Actions\CancelMarketplaceInstallAttemptAction;
 use Capell\Marketplace\Actions\FindStuckMarketplaceInstallOperationsAction;
 use Capell\Marketplace\Actions\RetryMarketplaceInstallAttemptAction;
+use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Enums\MarketplaceInstallFailureStage;
 use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Enums\MarketplaceOperationType;
@@ -17,6 +18,7 @@ use Capell\Marketplace\Jobs\RunMarketplaceUninstallAttemptJob;
 use Capell\Marketplace\Jobs\RunMarketplaceUpdateAttemptJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
 use Capell\Marketplace\Support\MarketplaceOperationVocabulary;
+use Capell\Marketplace\Tests\Support\FakeMarketplaceListings;
 use Illuminate\Support\Facades\Queue;
 
 const PARITY_PACKAGE_NAME = 'capell-app/parity-package';
@@ -40,10 +42,20 @@ function registerParityPackage(): void
 {
     CapellCore::registerPackage(PARITY_PACKAGE_NAME, PackageTypeEnum::Plugin, version: '1.0.0');
     CapellCore::markPackageInstalled(PARITY_PACKAGE_NAME);
+    // A retried update asks Composer's installed set for today's version.
+    app()->instance(MarketplaceInstalledPackageVersionResolver::class, new readonly class implements MarketplaceInstalledPackageVersionResolver
+    {
+        #[Override]
+        public function prettyVersion(string $composerName): ?string
+        {
+            return $composerName === PARITY_PACKAGE_NAME ? '1.0.0' : null;
+        }
+    });
 }
 
 it('retries an operation as the operation it was, not as an install', function (MarketplaceOperationType $operation, string $expectedJob): void {
     Queue::fake();
+    FakeMarketplaceListings::free();
 
     // Update and uninstall both require the package to be present. Only an
     // install requires it to be absent. The fixture matches the operation's
