@@ -8,7 +8,9 @@ use Capell\Core\Contracts\PublicRead\PublicPageReadEligibility;
 use Capell\Core\Data\PublicRead\PublicPageReadCandidateData;
 use Capell\Core\Data\Rendering\FrontendResourceContextData;
 use Capell\Core\Data\Rendering\FrontendRuntimeManifestData;
+use Capell\Core\Enums\CacheTime;
 use Capell\Core\Enums\Rendering\RenderingStrategyEnum;
+use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -170,6 +172,45 @@ it('remembers public page render data when the render data cache is enabled', fu
     expect($first)->toBeInstanceOf(PublicPageRenderData::class)
         ->and($second)->toBeInstanceOf(PublicPageRenderData::class)
         ->and($calls)->toBe(1);
+});
+
+it('builds render data on every request for a page whose type is never cached', function (): void {
+    config()->set('cache.default', 'array');
+    config()->set('capell-frontend.public_render_data_cache', true);
+
+    $type = Blueprint::factory()->page()->meta(['cache_time' => CacheTime::Never->value])->createOne();
+    $page = Page::factory()
+        ->type($type)
+        ->withTranslations()
+        ->createOne()
+        ->load('blueprint');
+    $language = Language::query()->findOrFail((int) $page->translations->first()->language_id);
+    $site = Site::query()->findOrFail((int) $page->site_id);
+    $runtime = FrontendRuntimeManifestData::forRenderingStrategy(RenderingStrategyEnum::BladeOnly);
+    $context = new FrontendRenderContextData(
+        page: $page,
+        site: $site,
+        language: $language,
+        layout: Layout::query()->find($page->layout_id),
+        theme: $site->theme,
+        runtimeManifest: $runtime,
+    );
+    $visitors = ['first visitor', 'second visitor'];
+
+    $builder = function () use (&$visitors, $runtime): PublicPageRenderData {
+        return new PublicPageRenderData(
+            layoutGraph: null,
+            runtimeManifest: $runtime,
+            resourcePlan: new FrontendResourcePlanData([], [], [], [], [], [], [], hash('sha256', 'empty')),
+            surrogateKeys: [(string) array_shift($visitors)],
+        );
+    };
+
+    $cache = resolve(PublicPageRenderDataCache::class);
+
+    expect($cache->remember($context, $builder)->surrogateKeys)->toBe(['first visitor'])
+        ->and($cache->remember($context, $builder)->surrogateKeys)->toBe(['second visitor'])
+        ->and($cache->keyForContext($context))->toBeNull();
 });
 
 it('does not rebuild contributor values on a warm cache hit', function (): void {
