@@ -48,6 +48,18 @@ In-page authoring is a post-load admin feature. The public page loads normally, 
 handlers, inline styles, unvalidated URL attributes and other forbidden markup. Extensions
 are application-global: they must not vary by site, tenant, request, or authenticated user.
 
+## Head Snippets
+
+Site, theme and page `meta_tags` accept `<meta>` and `<link>` elements only. Capell removes
+every other element, event handler attribute and `javascript:`, `data:` or `vbscript:` URL.
+It also drops `<meta http-equiv>` tags set to `refresh`, `set-cookie` or
+`content-security-policy` (and the report-only variant), because an editor must not be able to
+redirect visitors or rewrite the response policy. A `<link>` is kept only when every `rel` token
+is one of `alternate`, `apple-touch-icon`, `apple-touch-icon-precomposed`, `author`,
+`canonical`, `dns-prefetch`, `icon`, `license`, `manifest`, `mask-icon`, `me`, `next`,
+`preconnect`, `prev`, `search` or `shortcut`. Stylesheets, preloads and module preloads are not
+available to editors; themes and packages add those through the frontend resource plan.
+
 ## Safe And Unsafe Examples
 
 Safe:

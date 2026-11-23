@@ -9,6 +9,15 @@ use DOMElement;
 
 final class HeadContentSanitizer
 {
+    /** @var list<string> */
+    private const array BLOCKED_HTTP_EQUIV = ['refresh', 'set-cookie', 'content-security-policy', 'content-security-policy-report-only'];
+
+    /** @var list<string> */
+    private const array ALLOWED_LINK_RELS = [
+        'alternate', 'apple-touch-icon', 'apple-touch-icon-precomposed', 'author', 'canonical', 'dns-prefetch',
+        'icon', 'license', 'manifest', 'mask-icon', 'me', 'next', 'preconnect', 'prev', 'search', 'shortcut',
+    ];
+
     public static function css(string $css): string
     {
         return (string) preg_replace('/<\/(style|script)/i', '<\/$1', $css);
@@ -53,11 +62,33 @@ final class HeadContentSanitizer
                 continue;
             }
 
+            if (! self::isPermitted($node)) {
+                continue;
+            }
+
             self::sanitizeElement($node);
             $output .= $document->saveHTML($node) ?: '';
         }
 
         return $output;
+    }
+
+    /**
+     * Editor head snippets are metadata only. Meta `http-equiv` values that redirect, set
+     * cookies or rewrite the content security policy are refused, and a link is kept only
+     * when every `rel` token names a relationship that cannot load a stylesheet or script.
+     */
+    private static function isPermitted(DOMElement $element): bool
+    {
+        if ($element->tagName === 'meta') {
+            $httpEquiv = strtolower(trim((string) preg_replace('/[\s\x00-\x1f]+/', ' ', $element->getAttribute('http-equiv'))));
+
+            return ! in_array($httpEquiv, self::BLOCKED_HTTP_EQUIV, true);
+        }
+
+        $tokens = preg_split('/\s+/', strtolower(trim($element->getAttribute('rel'))), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return $tokens !== [] && array_diff($tokens, self::ALLOWED_LINK_RELS) === [];
     }
 
     private static function sanitizeElement(DOMElement $element): void
