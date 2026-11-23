@@ -369,22 +369,21 @@ Marketplace connection UI should stay action-oriented:
 ## Navigation
 
 The sidebar has a fixed set of groups, in this order: the Dashboard (ungrouped,
-at the top), then Website, Media, Design, Marketing, Business, Reports, Users and
+at the top), then Website, Design, Marketing, Business, Reports, Users and
 Settings. They are the cases of `Capell\Admin\Enums\NavigationGroupEnum`.
 Packages choose a case; they cannot add a group. If a package needs an area that
 none of the cases fits, propose a new case in a pull request to Core.
 
-| Group     | What belongs there                                                       |
-| --------- | ------------------------------------------------------------------------ |
-| Website   | Pages, articles, menus, redirects, sections, events and publishing tools |
-| Media     | The media library                                                        |
-| Design    | Layouts, themes, block templates and blueprints                          |
-| Marketing | Forms, contacts, newsletters, campaigns, SEO and social tools            |
-| Business  | Bookings, payments, shops, live chat and customer support                |
-| Reports   | Analytics, audits, monitoring and readiness reports                      |
-| Users     | Users, roles, access rules and activity logs                             |
-| Settings  | Sites, languages, health, security, extensions and system tools          |
-| Developer | Deployments, demo content, migration and developer reference tools       |
+| Group     | What belongs there                                                              |
+| --------- | ------------------------------------------------------------------------------- |
+| Website   | Pages, articles, media, menus, redirects, sections, events and publishing tools |
+| Design    | Layouts, themes, block templates and blueprints                                 |
+| Marketing | Forms, contacts, newsletters, campaigns, SEO and social tools                   |
+| Business  | Bookings, payments, shops, live chat and customer support                       |
+| Reports   | Analytics, audits, monitoring and readiness reports                             |
+| Users     | Users, roles, access rules and activity logs                                    |
+| Settings  | Sites, languages, health, security, extensions and system tools                 |
+| Developer | Deployments, demo content, migration and developer reference tools              |
 
 Return the case from a resource or page's `getNavigationGroup()`:
 
@@ -413,7 +412,7 @@ permissions in place.
 ### Limits
 
 Core Capell keeps to at most 9 groups and 10 top-level items in each group,
-and every group except Media holds at least 2 items. The limits live in
+and every group holds at least 2 items. The limits live in
 `capell-admin.navigation` and are enforced by tests against the core sidebar.
 A site with many packages installed can go over the item limit; every item still
 shows in its group.

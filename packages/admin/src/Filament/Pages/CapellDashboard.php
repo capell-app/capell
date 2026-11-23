@@ -49,6 +49,7 @@ use Capell\Core\Models\Language;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Database\RuntimeSchemaState;
 use Capell\Core\Support\Permissions\SiteAccess;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\CheckboxList;
@@ -99,6 +100,8 @@ class CapellDashboard extends Dashboard
     private ?array $layoutWidgetKeysCache = null;
 
     private ?int $accessibleSiteCountCache = null;
+
+    private bool $deferWidgetLoading = false;
 
     /**
      * Restoring a hidden checklist comes first and ends in one redirect to the plain
@@ -284,11 +287,6 @@ class CapellDashboard extends Dashboard
         }
 
         array_push($components, ...$this->filtersContent());
-        $attention = array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) === NeedsAttentionFilamentWidget::class));
-        if ($this->getWidgetsSchemaComponents($attention) !== []) {
-            $components[] = Grid::make(1)->schema($this->getWidgetsSchemaComponents($attention))->columnSpanFull();
-        }
-
         $components[] = $this->getWidgetsContentComponent();
 
         return $schema->components($components);
@@ -302,6 +300,27 @@ class CapellDashboard extends Dashboard
             && ! in_array($this->normalizeWidgetClass($widget), [NeedsAttentionFilamentWidget::class, FirstRunChecklistFilamentWidget::class], true)
             && (! $this->isAnalyticsWidget($widget) || (! $this->isFirstRun() && $this->analyticsReportsData()))));
         $regions = [];
+
+        // What a person checks first sits directly under the filters: page counts as one row of cards,
+        // then the getting-started list beside what needs attention, so the rest can collapse below.
+        $overviewClasses = CapellAdmin::getDashboardFilamentWidgetsByRegion($this->dashboardEnum(), DashboardRegionEnum::Overview);
+        $overview = $this->getWidgetsSchemaComponents(array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => in_array($this->normalizeWidgetClass($widget), $overviewClasses, true))));
+        if ($overview !== []) {
+            $regions[] = Grid::make($this->getColumns())->schema($overview)->columnSpanFull();
+        }
+
+        $setupClasses = CapellAdmin::getDashboardFilamentWidgetsByRegion($this->dashboardEnum(), DashboardRegionEnum::Setup);
+        $attention = array_values(array_filter($this->getWidgets(), fn (string|WidgetConfiguration $widget): bool => $this->normalizeWidgetClass($widget) === NeedsAttentionFilamentWidget::class));
+        $work = $this->getWidgetsSchemaComponents([
+            ...array_values(array_filter($widgets, fn (string|WidgetConfiguration $widget): bool => in_array($this->normalizeWidgetClass($widget), $setupClasses, true))),
+            ...$attention,
+        ]);
+        if ($work !== []) {
+            $regions[] = Grid::make(['default' => 1, 'lg' => min(2, count($work))])
+                ->schema(array_map(fn (Component|Action|ActionGroup $component): Grid => Grid::make(1)
+                    ->schema([$component])->columnSpan(1), $work))
+                ->columnSpanFull();
+        }
 
         foreach ([DashboardRegionEnum::Pulse, DashboardRegionEnum::Trends, DashboardRegionEnum::Insights] as $region) {
             $classes = CapellAdmin::getDashboardFilamentWidgetsByRegion($this->dashboardEnum(), $region);
@@ -336,6 +355,9 @@ class CapellDashboard extends Dashboard
                 ->headerActions(AnalyticsDashboard::canAccess() ? [Action::make('exploreAnalytics')
                     ->label(__('capell-admin::dashboard.explore_analytics'))
                     ->url(fn (): string => AnalyticsDashboard::getUrl(['filters' => $this->filters ?? []]))] : [])
+                ->collapsible()
+                ->persistCollapsed()
+                ->id('dashboard-performance')
                 ->schema($performance)->columnSpanFull();
         }
 
@@ -351,8 +373,12 @@ class CapellDashboard extends Dashboard
         if ($additional !== []) {
             $regions[] = Section::make(__('capell-admin::dashboard.region_additional'))
                 ->description(__('capell-admin::dashboard.additional_description'))
+                ->collapsible()
+                ->collapsed()
+                ->persistCollapsed()
+                ->id('dashboard-more-panels')
                 ->schema([
-                    Grid::make($this->getColumns())->schema($this->getWidgetsSchemaComponents($additional))->columnSpanFull(),
+                    Grid::make($this->getColumns())->schema($this->withDeferredWidgetLoading(fn (): array => $this->getWidgetsSchemaComponents($additional)))->columnSpanFull(),
                 ])
                 ->columnSpanFull();
         }
@@ -395,6 +421,7 @@ class CapellDashboard extends Dashboard
                             ...$widget->widget::getDefaultProperties(),
                             ...$widget->getProperties(),
                         ] : $widget::getDefaultProperties()),
+                        ...$this->widgetLoadingProperties($widget),
                         ...(property_exists($widgetClass, 'pageFilters') ? ['pageFilters' => $this->filters] : []),
                         ...($this->workFirstEnabled() && property_exists($widgetClass, 'dashboardSize') ? ['dashboardSize' => $this->dashboardWidgetOptions()['sizes'][$widgetClass] ?? 'standard'] : []),
                         ...($this->workFirstEnabled() && property_exists($widgetClass, 'attentionVisible') ? ['attentionVisible' => $this->isWorkFirstAttentionVisible()] : []),
@@ -556,6 +583,42 @@ class CapellDashboard extends Dashboard
             $this->reportsAction(),
             $this->upgradeAction(),
         ]));
+    }
+
+    /**
+     * @param  Closure(): array<Component | Action | ActionGroup>  $build
+     * @return array<Component | Action | ActionGroup>
+     */
+    private function withDeferredWidgetLoading(Closure $build): array
+    {
+        $previous = $this->deferWidgetLoading;
+        $this->deferWidgetLoading = true;
+
+        try {
+            return $build();
+        } finally {
+            $this->deferWidgetLoading = $previous;
+        }
+    }
+
+    /**
+     * Filament widgets lazy-load when they scroll into view, which never fires for a widget whose
+     * placeholder is empty or already off-screen, leaving a blank bordered box. Panels the visitor
+     * can see load as soon as the page does; only widgets inside a collapsed section wait to be
+     * revealed.
+     *
+     * @param  class-string<Widget>|WidgetConfiguration  $widget
+     * @return array<string, mixed>
+     */
+    private function widgetLoadingProperties(string|WidgetConfiguration $widget): array
+    {
+        $widgetClass = $this->normalizeWidgetClass($widget);
+
+        if ($this->deferWidgetLoading || ! $widgetClass::isLazy()) {
+            return [];
+        }
+
+        return ['lazy' => 'on-load'];
     }
 
     /**

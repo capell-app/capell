@@ -45,7 +45,7 @@ it('places every core screen in its agreed group', function (string $class, ?Nav
     [CapellDashboard::class, null],
     [PageResource::class, NavigationGroupEnum::Website],
     [RedirectResource::class, NavigationGroupEnum::Website],
-    [MediaResource::class, NavigationGroupEnum::Media],
+    [MediaResource::class, NavigationGroupEnum::Website],
     [LayoutResource::class, NavigationGroupEnum::Design],
     [ThemeResource::class, NavigationGroupEnum::Design],
     [BlockTemplateResource::class, NavigationGroupEnum::Design],
@@ -101,7 +101,6 @@ it('moves recently deleted from the groups to the sidebar footer', function (): 
 it('keeps the core sidebar within the agreed limits', function (): void {
     test()->actingAsAdmin();
     $groups = bootAdminNavigation()->filter(fn (NavigationGroup $group): bool => $group->getLabel() !== null);
-    $singleItemGroups = array_map(fn (NavigationGroupEnum $case): string => $case->getLabel(), NavigationLimits::singleItemGroups());
 
     expect($groups->count())->toBeLessThanOrEqual(NavigationLimits::maxGroups());
 
@@ -109,9 +108,7 @@ it('keeps the core sidebar within the agreed limits', function (): void {
         $count = collect($group->getItems())->count();
         expect($count)->toBeLessThanOrEqual(NavigationLimits::maxItemsPerGroup(), $group->getLabel() . ' is over the item limit');
 
-        if (! in_array($group->getLabel(), $singleItemGroups, true)) {
-            expect($count)->toBeGreaterThanOrEqual(NavigationLimits::minItemsPerGroup(), $group->getLabel() . ' has too few items');
-        }
+        expect($count)->toBeGreaterThanOrEqual(NavigationLimits::minItemsPerGroup(), $group->getLabel() . ' has too few items');
     }
 });
 

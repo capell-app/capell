@@ -291,8 +291,9 @@ it('composes performance summaries and additional dashboard panels', function ()
     app()->singleton(DashboardAnalyticsDataProvider::class, RecordedVisitsAnalyticsDataProvider::class);
     $components = (new CapellDashboard)->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
-    expect($components)->toHaveCount(3)->and($components[0])->toBeInstanceOf(Section::class);
-    $performance = $components[0];
+    // At a glance, then the work row (getting started, needs attention), then the collapsible panels.
+    expect($components)->toHaveCount(5);
+    $performance = $components[2];
     throw_unless($performance instanceof Section, LogicException::class);
     expect($performance->getHeading())->toBe(__('capell-admin::dashboard.performance_heading'))
         ->and(defaultDashboardRegionWidgets($performance))->toBe([
@@ -300,9 +301,11 @@ it('composes performance summaries and additional dashboard panels', function ()
             AnalyticsTrendFilamentWidget::class,
             AnalyticsInsightsFilamentWidget::class,
         ]);
-    $additional = $components[2];
+    $additional = $components[4];
     throw_unless($additional instanceof Section, LogicException::class);
     expect($additional->getHeading())->toBe(__('capell-admin::dashboard.region_additional'))
+        ->and($additional->isCollapsed())->toBeTrue()
+        ->and($performance->isCollapsible())->toBeTrue()
         ->and(defaultDashboardRegionWidgets($additional))->toContain(ListPagesFilamentWidget::class)
         ->not->toContain(AnalyticsOverviewFilamentWidget::class)->not->toContain(AnalyticsTrendFilamentWidget::class)->not->toContain(AnalyticsInsightsFilamentWidget::class);
     expect((new DashboardToolsPage)->getWidgets())->toContain(ListPagesFilamentWidget::class)
@@ -320,15 +323,15 @@ it('shows one sentence that matches the analytics source instead of empty visit 
     $components = $dashboard->getWidgetsContentComponent()->getDefaultChildComponents();
     $components = $components instanceof Schema ? $components->getComponents() : $components;
 
-    $performance = $components[0];
+    $performance = $components[2];
     throw_unless($performance instanceof Section, LogicException::class);
     $children = $performance->getDefaultChildComponents();
     $children = $children instanceof Schema ? $children->getComponents() : $children;
 
     $sentence = $children[0] ?? null;
     throw_unless($sentence instanceof Text, LogicException::class);
-    $activity = $components[1] ?? null;
-    $additional = $components[2] ?? null;
+    $activity = $components[3] ?? null;
+    $additional = $components[4] ?? null;
     throw_unless(($activity instanceof Grid || $activity instanceof Section) && ($additional instanceof Grid || $additional instanceof Section), LogicException::class);
 
     expect($performance->getHeading())->toBe(__('capell-admin::dashboard.performance_heading'))
@@ -336,7 +339,7 @@ it('shows one sentence that matches the analytics source instead of empty visit 
         ->and($sentence->getContent())->toBe(__($expected))
         ->and(EmptyAnalyticsDataProvider::$periods)->toContain(DashboardDateRangeEnum::Last30Days->value)
         ->and(EmptyAnalyticsDataProvider::$periods)->not->toContain(DashboardDateRangeEnum::ThisYear->value)
-        ->and($components)->toHaveCount(3);
+        ->and($components)->toHaveCount(5);
 
     foreach ($absent as $other) {
         expect($sentence->getContent())->not->toBe(__($other));
@@ -503,3 +506,25 @@ it('stops mounted analytics reads when their class switch is disabled', function
     PopularPagesWidget::class,
     RisingPagesWidget::class,
 ]);
+
+it('puts the page counts first and loads visible widgets on page load rather than on scroll', function (): void {
+    test()->actingAsAdmin();
+    Site::factory()->createOne();
+    $dashboard = new CapellDashboard;
+    $components = $dashboard->getWidgetsContentComponent()->getDefaultChildComponents();
+    $components = $components instanceof Schema ? $components->getComponents() : $components;
+
+    $overview = $components[0];
+    throw_unless($overview instanceof Grid, LogicException::class);
+
+    expect(defaultDashboardRegionWidgets($overview))->toContain(SiteStatsOverviewFilamentWidget::class);
+
+    // A viewport-intersect widget that is never scrolled to leaves a blank bordered box, so
+    // everything the visitor can see loads immediately; only the collapsed panel waits.
+    $loading = new ReflectionMethod(CapellDashboard::class, 'widgetLoadingProperties');
+    $defer = new ReflectionMethod(CapellDashboard::class, 'withDeferredWidgetLoading');
+
+    expect($loading->invoke($dashboard, ListPagesFilamentWidget::class))->toBe(['lazy' => 'on-load'])
+        ->and($defer->invoke($dashboard, fn (): array => $loading->invoke($dashboard, ListPagesFilamentWidget::class)))->toBe([])
+        ->and($loading->invoke($dashboard, ListPagesFilamentWidget::class))->toBe(['lazy' => 'on-load']);
+});
