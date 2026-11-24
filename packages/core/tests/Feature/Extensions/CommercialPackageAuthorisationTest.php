@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Capell\Core\Actions\EnablePackageAction;
 use Capell\Core\Actions\Marketplace\ApplyMarketplaceIssuanceAction;
 use Capell\Core\Actions\Marketplace\SendExtensionHealthReportAction;
+use Capell\Core\Actions\Marketplace\VerifyExtensionActivationAction;
 use Capell\Core\Actions\ProjectBuild\CanonicalizeProjectBuildManifestSigningInputAction;
 use Capell\Core\Contracts\Marketplace\ExtensionEntitlements;
 use Capell\Core\Enums\ExtensionStatusEnum;
@@ -393,20 +394,22 @@ function commercialExtensionWith(?array $activation, string $status = 'active'):
     ]);
 }
 
-it('verifies only purpose bound version 2 receipts inside a bounded runtime window', function (array $overrides, string $location, bool $valid): void {
+it('verifies only purpose bound version 2 receipts inside a bounded runtime window, and keeps a genuine one running past it', function (array $overrides, string $location, bool $valid, bool $runs): void {
     connectCommercialMarketplace();
-    commercialExtensionWith([$location => commercialReceipt($overrides)]);
-    expect(CapellCore::isPackageEnabled('vendor/commercial'))->toBe($valid);
+    $extension = commercialExtensionWith([$location => commercialReceipt($overrides)]);
+    expect(VerifyExtensionActivationAction::run($extension))->toBe($valid)
+        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBe($runs);
 })->with([
-    'v2 location' => [[], 'installed_receipt_v2', true],
-    'version 2 at the legacy location' => [[], 'installed_receipt', true],
-    'version 1 at the legacy location' => [['receipt_version' => 1], 'installed_receipt', false],
-    'missing purpose' => [['purpose' => null], 'installed_receipt_v2', false],
-    'catalogue purpose reused' => [['purpose' => 'capell-extension-commercial-classification'], 'installed_receipt_v2', false],
-    'runtime window ended' => [['issued_at' => now()->subDays(25)->toIso8601String(), 'runtime_valid_until' => now()->subDay()->toIso8601String()], 'installed_receipt_v2', false],
-    'window longer than Core honours' => [['runtime_valid_until' => now()->addDays(40)->toIso8601String()], 'installed_receipt_v2', false],
-    'no runtime window' => [['runtime_valid_until' => null], 'installed_receipt_v2', false],
-    'issued in the future' => [['issued_at' => now()->addHour()->toIso8601String()], 'installed_receipt_v2', false],
+    'v2 location' => [[], 'installed_receipt_v2', true, true],
+    'version 2 at the legacy location' => [[], 'installed_receipt', true, true],
+    'version 1 at the legacy location' => [['receipt_version' => 1], 'installed_receipt', false, false],
+    'version 1 at the v2 location' => [['receipt_version' => 1], 'installed_receipt_v2', false, false],
+    'missing purpose' => [['purpose' => null], 'installed_receipt_v2', false, false],
+    'catalogue purpose reused' => [['purpose' => 'capell-extension-commercial-classification'], 'installed_receipt_v2', false, false],
+    'runtime window ended' => [['issued_at' => now()->subDays(25)->toIso8601String(), 'runtime_valid_until' => now()->subDay()->toIso8601String()], 'installed_receipt_v2', false, true],
+    'window longer than Core honours' => [['runtime_valid_until' => now()->addDays(40)->toIso8601String()], 'installed_receipt_v2', false, true],
+    'no runtime window' => [['runtime_valid_until' => null], 'installed_receipt_v2', false, true],
+    'issued in the future' => [['issued_at' => now()->addHour()->toIso8601String()], 'installed_receipt_v2', false, false],
 ]);
 
 it('keeps the highest catalogue sequence and refuses an older replay', function (): void {
@@ -449,8 +452,9 @@ it('refuses a catalogue without a sequence or with a tampered body', function ()
 it('renews receipts and the catalogue from the heartbeat and applies runtime revocation', function (): void {
     connectCommercialMarketplace();
     $old = commercialReceipt(['issued_at' => now()->subDays(25)->toIso8601String(), 'runtime_valid_until' => now()->subDay()->toIso8601String()]);
-    commercialExtensionWith(['installed_receipt_v2' => $old]);
-    expect(CapellCore::isPackageEnabled('vendor/commercial'))->toBeFalse();
+    $extension = commercialExtensionWith(['installed_receipt_v2' => $old]);
+    expect(VerifyExtensionActivationAction::run($extension))->toBeFalse()
+        ->and(CapellCore::isPackageEnabled('vendor/commercial'))->toBeTrue();
 
     $secret = 'commercial-secret';
     $heartbeats = Http::sequence();

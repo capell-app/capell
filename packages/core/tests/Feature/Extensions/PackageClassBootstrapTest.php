@@ -382,6 +382,7 @@ it('registers a protected release only through the gated manifest after pinning 
 it('admits a receipted paid provider on the first registration using the Marketplace instance configuration', function (
     ?array $appConfig,
     bool $expectedProvider,
+    bool $tamperReceipt = false,
 ): void {
     $name = 'capell-app/paid-fixture';
     $manifest = capellManifestV3Array(name: $name, surfaces: ['frontend'], providers: ['frontend' => [ManifestBootstrapFrontendProvider::class]]);
@@ -390,7 +391,9 @@ it('admits a receipted paid provider on the first registration using the Marketp
     CapellExtension::query()->create([
         'composer_name' => $name, 'status' => ExtensionStatusEnum::Enabled,
         'marketplace_runtime_status' => 'active', 'marketplace_runtime_allowed' => true,
-        'marketplace_signed_activation' => ['installed_receipt_v2' => packageClassReceipt($name)],
+        'marketplace_signed_activation' => ['installed_receipt_v2' => $tamperReceipt
+            ? [...packageClassReceipt($name), 'package_version' => '9.9.9']
+            : packageClassReceipt($name)],
     ]);
 
     $originalInstance = getenv('CAPELL_MARKETPLACE_INSTANCE_ID');
@@ -425,7 +428,10 @@ it('admits a receipted paid provider on the first registration using the Marketp
 })->with([
     'unpublished Capell config' => [null, true],
     'Capell config with an unrelated override' => [['schedule' => ['run_frequent_commands_in_process' => true]], true],
-    'an explicit different instance' => [['extensions' => ['marketplace_instance_id' => 'wrong-instance']], false],
+    // A genuine receipt held by another instance is an unactivated site: it keeps running with the admin licence
+    // notice. An altered receipt is never honoured, whatever the instance.
+    'a genuine receipt for a different instance' => [['extensions' => ['marketplace_instance_id' => 'wrong-instance']], true],
+    'an altered receipt for a different instance' => [['extensions' => ['marketplace_instance_id' => 'wrong-instance']], false, true],
 ]);
 
 it('keeps authoring providers out of empty-key public discovery through a protected bootstrap', function (): void {
