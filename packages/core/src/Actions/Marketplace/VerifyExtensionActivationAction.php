@@ -98,6 +98,46 @@ final class VerifyExtensionActivationAction
         return VerifyMarketplaceIssuerSignatureAction::run($receipt);
     }
 
+    /**
+     * Whether the extension holds a receipt the issuer really signed for this package and has not revoked, even if it
+     * was issued for another site or its runtime window has ended. Such an install keeps running with an admin
+     * notice; only a forged, altered or revoked receipt stops it.
+     */
+    public function isGenuine(CapellExtension $extension): bool
+    {
+        $receipt = self::receiptFrom($extension->marketplace_signed_activation);
+        if ($receipt === null
+            || ($receipt['receipt_version'] ?? null) !== 2
+            || ($receipt['purpose'] ?? null) !== self::PURPOSE
+            || ! is_string($receipt['composer_name'] ?? null)
+            || strtolower($receipt['composer_name']) !== strtolower($extension->composer_name)
+            || ($receipt['perpetual_installed_runtime'] ?? null) !== true
+            || ($receipt['runtime_revoked'] ?? null) !== false
+            || ! is_string($receipt['issued_at'] ?? null)) {
+            return false;
+        }
+
+        $revokedAfter = is_array($extension->marketplace_signed_activation)
+            ? ($extension->marketplace_signed_activation['revoked_after'] ?? null)
+            : null;
+
+        try {
+            $issued = CarbonImmutable::parse($receipt['issued_at']);
+            // A receipt dated in the future could outrank a later revocation, so it is never treated as genuine.
+            if ($issued->greaterThan(CarbonImmutable::now()->addSeconds(self::CLOCK_SKEW_SECONDS))) {
+                return false;
+            }
+
+            if (is_string($revokedAfter) && ! $issued->greaterThan(CarbonImmutable::parse($revokedAfter))) {
+                return false;
+            }
+        } catch (Throwable) {
+            return false;
+        }
+
+        return VerifyMarketplaceIssuerSignatureAction::run($receipt);
+    }
+
     private function withinRuntimeWindow(string $issuedAt, string $validUntil, ?string $revokedAfter): bool
     {
         try {

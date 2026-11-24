@@ -60,8 +60,11 @@ it('blocks an expired paid extension when the issuer key is untrusted or malform
     'malformed key' => 'invalid base64',
 ]);
 
-/** @return array<string, mixed> */
-function validInstalledReceipt(): array
+/**
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function validInstalledReceipt(array $overrides = []): array
 {
     $keys = sodium_crypto_sign_seed_keypair(str_repeat("\x02", 32));
     app()->instance(TrustedMarketplaceIssuerKeys::class, new TrustedMarketplaceIssuerKeys(keys: ['test-issuer' => base64_encode(sodium_crypto_sign_publickey($keys))]));
@@ -80,6 +83,7 @@ function validInstalledReceipt(): array
         'runtime_revoked' => false,
         'signature' => ['algorithm' => 'ed25519', 'keyId' => 'test-issuer', 'value' => ''],
     ];
+    $receipt = [...$receipt, ...$overrides];
     $receipt['signature']['value'] = base64_encode(sodium_crypto_sign_detached(CanonicalizeProjectBuildManifestSigningInputAction::run($receipt), sodium_crypto_sign_secretkey($keys)));
 
     return $receipt;
@@ -165,3 +169,44 @@ it('blocks an expired paid extension with a malformed activation payload', funct
     expect($gate->allowed)->toBeFalse()
         ->and($gate->reason)->toBe('expired_without_activation');
 });
+
+/** @param array<string, mixed> $receipt */
+function paidExtensionWithReceipt(?string $status, array $receipt): CapellExtension
+{
+    return CapellExtension::query()->create([
+        'composer_name' => 'capell-app/seo-suite',
+        'name' => 'SEO Suite',
+        'status' => ExtensionStatusEnum::Enabled,
+        'is_paid_marketplace_extension' => true,
+        'marketplace_runtime_status' => $status,
+        'marketplace_runtime_allowed' => true,
+        'marketplace_signed_activation' => ['installed_receipt' => $receipt],
+    ]);
+}
+
+// Catches an unactivated, over-limit or lapsed site being broken although the issuer genuinely signed its receipt.
+it('keeps a genuinely licensed install running when its site is not activated or its receipt has lapsed', function (?string $status, array $overrides): void {
+    $gate = ResolveExtensionRuntimeGateAction::run(paidExtensionWithReceipt($status, validInstalledReceipt($overrides)));
+
+    expect($gate->allowed)->toBeTrue()
+        ->and($gate->reason)->toBe('genuine_receipt_awaiting_site_licence');
+})->with([
+    'receipt for another site' => ['expired', ['domain' => 'another-site.com']],
+    'runtime window ended' => ['expired', ['issued_at' => now()->subDays(40)->toIso8601String(), 'runtime_valid_until' => now()->subDays(12)->toIso8601String()]],
+    'site reported as a domain mismatch' => ['domain_mismatch', ['domain' => 'another-site.com']],
+    'site not yet verified' => ['unverified', []],
+    'no runtime status yet' => [null, ['instance_id' => 'another-instance']],
+]);
+
+// Catches a forged, altered or revoked receipt being let through by the softened gate.
+it('still stops an install whose receipt was altered or revoked', function (?string $status, Closure $receipt, string $reason): void {
+    $gate = ResolveExtensionRuntimeGateAction::run(paidExtensionWithReceipt($status, $receipt()));
+
+    expect($gate->allowed)->toBeFalse()
+        ->and($gate->reason)->toBe($reason);
+})->with([
+    'domain changed after signing' => ['domain_mismatch', fn (): array => [...validInstalledReceipt(), 'domain' => 'another-site.com'], 'domain_mismatch'],
+    'receipt for a different package' => ['expired', fn (): array => validInstalledReceipt(['composer_name' => 'capell-app/forms-pro']), 'expired_without_activation'],
+    'issuer revoked the runtime' => [null, fn (): array => validInstalledReceipt(['runtime_revoked' => true]), 'missing_marketplace_activation'],
+    'revoked status' => ['revoked', validInstalledReceipt(...), 'revoked'],
+]);

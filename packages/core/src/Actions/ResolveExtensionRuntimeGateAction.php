@@ -37,8 +37,14 @@ final class ResolveExtensionRuntimeGateAction
             return ExtensionRuntimeGateData::blocked('marketplace_runtime_disallowed');
         }
 
-        if (in_array($status, ['unverified', 'domain_mismatch', 'unapproved', 'invalid', 'revoked'], true)) {
+        if (in_array($status, ['unapproved', 'invalid', 'revoked'], true)) {
             return ExtensionRuntimeGateData::blocked($status);
+        }
+
+        // A site that is not activated, or is beyond its licence, never stops working: a genuine receipt keeps the
+        // installed version running and admins see the site licence notice.
+        if (in_array($status, ['unverified', 'domain_mismatch'], true)) {
+            return $this->softened($extension, $status);
         }
 
         if (! $this->policy->enforcing()) {
@@ -56,14 +62,22 @@ final class ResolveExtensionRuntimeGateAction
         return match ($status) {
             'active' => ! $protected || ($extension->marketplace_runtime_allowed && VerifyExtensionActivationAction::run($extension))
                 ? ExtensionRuntimeGateData::allowed('active')
-                : ExtensionRuntimeGateData::blocked('active_without_activation'),
+                : $this->softened($extension, 'active_without_activation'),
             'expired' => VerifyExtensionActivationAction::run($extension)
                 ? ExtensionRuntimeGateData::allowed('expired_but_previously_valid')
-                : ExtensionRuntimeGateData::blocked('expired_without_activation'),
+                : $this->softened($extension, 'expired_without_activation'),
             default => $protected
-                ? ExtensionRuntimeGateData::blocked('missing_marketplace_activation')
+                ? $this->softened($extension, 'missing_marketplace_activation')
                 : ExtensionRuntimeGateData::allowed('free_or_local_extension'),
         };
+    }
+
+    /** Allows an install whose receipt the issuer genuinely signed; anything forged, altered or revoked stays blocked. */
+    private function softened(CapellExtension $extension, string $blockedReason): ExtensionRuntimeGateData
+    {
+        return resolve(VerifyExtensionActivationAction::class)->isGenuine($extension)
+            ? ExtensionRuntimeGateData::allowed('genuine_receipt_awaiting_site_licence')
+            : ExtensionRuntimeGateData::blocked($blockedReason);
     }
 
     /** Behaviour before the issuer key is provisioned: paid flags and the entitlement seam. */
@@ -73,9 +87,9 @@ final class ResolveExtensionRuntimeGateAction
             'active' => ExtensionRuntimeGateData::allowed('active'),
             'expired' => $this->legacyActivationVerified($extension)
                 ? ExtensionRuntimeGateData::allowed('expired_but_previously_valid')
-                : ExtensionRuntimeGateData::blocked('expired_without_activation'),
+                : $this->softened($extension, 'expired_without_activation'),
             default => $extension->is_paid_marketplace_extension
-                ? ExtensionRuntimeGateData::blocked('missing_marketplace_activation')
+                ? $this->softened($extension, 'missing_marketplace_activation')
                 : ExtensionRuntimeGateData::allowed('free_or_local_extension'),
         };
     }
