@@ -17,6 +17,20 @@ enum AiDisclosure: string
     /** Where a page keeps its strongest disclosure, so public rendering needs no query. */
     public const string PAGE_META_KEY = 'ai_disclosure';
 
+    /**
+     * The IPTC digital source type schema.org's `digitalSourceType` takes for a page
+     * with this disclosure, or null when no AI wrote it. Generated text is trained
+     * algorithmic media; assisted text is a person's work composed with it.
+     */
+    public function digitalSourceType(): ?string
+    {
+        return match ($this) {
+            self::None => null,
+            self::Assisted => 'https://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia',
+            self::Generated => 'https://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia',
+        };
+    }
+
     public function rank(): int
     {
         return match ($this) {
