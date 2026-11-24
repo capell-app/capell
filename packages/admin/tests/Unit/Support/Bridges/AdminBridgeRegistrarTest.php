@@ -67,7 +67,9 @@ it('registers admin surface contributions through existing registries', function
             'schema_extender:admin-bridge-registrar-test:' . TestSchemaExtenderForRegistrar::class,
         )
         ->and(collect(app()->tagged('admin-bridge-registrar-test'))->first())->toBeInstanceOf(TestSchemaExtenderForRegistrar::class)
-        ->and(collect(app()->tagged(AdminPanelExtender::TAG))->first())->toBeInstanceOf(TestPanelExtenderForRegistrar::class);
+        // Installed packages tag their own panel extenders too, so the fixture is checked by presence, not position.
+        ->and(collect(app()->tagged(AdminPanelExtender::TAG))->map(static fn (object $extender): string => $extender::class)->all())
+        ->toContain(TestPanelExtenderForRegistrar::class);
 });
 
 it('registers stable Admin zone contributions through the bridge', function (): void {

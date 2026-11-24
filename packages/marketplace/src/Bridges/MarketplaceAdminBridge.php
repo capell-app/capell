@@ -17,6 +17,7 @@ use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Filament\Actions\MarketplaceInstallOperationsAction;
 use Capell\Marketplace\Filament\Actions\OpenMarketplaceAction;
 use Capell\Marketplace\Filament\Extenders\MarketplaceExtensionsPageExtender;
+use Capell\Marketplace\Filament\Extenders\SiteLicenceNoticePanelExtender;
 use Capell\Marketplace\Filament\Extenders\ThemeMarketplaceHeaderActionExtender;
 use Capell\Marketplace\Filament\Pages\MarketplaceExtensionDetailPage;
 use Capell\Marketplace\Filament\Pages\MarketplacePackageOperationsPage;
@@ -45,6 +46,7 @@ final class MarketplaceAdminBridge extends AbstractAdminBridge
 
     public function register(AdminBridgeRegistrar $registrar, AdminBridgeContextData $context): void
     {
+        $registrar->panelExtender(SiteLicenceNoticePanelExtender::class);
         $registrar->settingsClass(MarketplaceSettings::group(), MarketplaceSettings::class);
         $registrar->settingsMetadata(new SettingsGroupMetadata(
             group: MarketplaceSettings::group(),
