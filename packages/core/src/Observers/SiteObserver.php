@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Capell\Core\Observers;
 
 use Capell\Core\Actions\SiteDomains\LoadSiteRoutingCandidatesAction;
+use Capell\Core\Actions\Sites\FindRetainedSiteRecordsAction;
 use Capell\Core\Actions\ValidateStoredViewSelectorsAction;
 use Capell\Core\Enums\CacheEnum;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
+use Capell\Core\Exceptions\SiteHasRetainedRecordsException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Page;
@@ -58,6 +60,10 @@ class SiteObserver
         if (! $site->isForceDeleting()) {
             return;
         }
+
+        // The database cascades a site's rows away with it, so refuse while a package holds records that must be kept.
+        $retained = FindRetainedSiteRecordsAction::run($site);
+        throw_if($retained !== [], SiteHasRetainedRecordsException::forRecords($retained));
 
         $pageIds = Page::withTrashed()
             ->whereBelongsTo($site)

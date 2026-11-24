@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'site_has_retained_records' => 'This site cannot be permanently deleted because it holds records that must be kept: :records. Release them or move them to another site first.',
     'language_fallback_cycle' => 'That language already falls back to this one, so choosing it would create a loop. Choose a language that does not lead back here.',
     'language_fallback_self' => 'A language cannot fall back to itself. Choose a different language, or leave the fallback empty so untranslated pages show a not-found page.',
     'site_spec_site_name_raced' => 'Site :id, called ":name", was created while this import ran. No changes were made. Run the import again to update that site.',
