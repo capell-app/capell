@@ -24,7 +24,7 @@ final class BuildHeadMetadataAction
      * @param  array<int, string>  $robots
      * @param  array<string, string|array<string, mixed>>  $legacy  values from head hooks and authored tags (such as the SEO Suite), which replace the defaults
      */
-    public function handle(string $title, ?string $description, ?string $url, ?string $siteName, array $robots, bool $isError, array $legacy = [], ?string $image = null): HeadMetadataData
+    public function handle(string $title, ?string $description, ?string $url, ?string $siteName, array $robots, bool $isError, array $legacy = [], ?string $image = null, ?string $digitalSourceType = null): HeadMetadataData
     {
         $description = strip_tags($description ?? '');
         $siteName = strip_tags($siteName ?? '');
@@ -54,6 +54,11 @@ final class BuildHeadMetadataAction
             if (is_array($values['jsonld:WebPage'])) {
                 unset($values['jsonld:WebPage']['url']);
             }
+        }
+
+        // Added after the merge so an authored WebPage node keeps the site's AI disclosure.
+        if ($digitalSourceType !== null && is_array($values['jsonld:WebPage'])) {
+            $values['jsonld:WebPage']['digitalSourceType'] = $digitalSourceType;
         }
 
         $graph = [$values['jsonld:WebSite'], $values['jsonld:WebPage']];

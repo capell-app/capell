@@ -81,3 +81,19 @@ it('keeps the machine-readable marker independent of the notice', function (): v
         ->and($html)->toContain('content="generated"')
         ->and($html)->not->toContain(AI_NOTICE_TEXT);
 });
+
+it('declares the digital source type in the served page JSON-LD only when the site marks AI-written pages', function (array $siteMeta, ?AiDisclosure $disclosure, bool $expected): void {
+    $html = renderAiNoticePage($siteMeta, $disclosure, fn () => $this->followingRedirects()->get('/', ['HTTP_HOST' => 'localhost']));
+
+    expect(str_contains($html, 'digitalSourceType'))->toBe($expected)
+        ->and($html)->not->toContain('capell_ai_provenance');
+
+    if ($expected) {
+        expect($html)->toContain('"digitalSourceType":"https:\\/\\/schema.org\\/TrainedAlgorithmicMediaDigitalSource"');
+    }
+})->with([
+    'marker on, generated' => [['ai_disclosure' => 'marker'], AiDisclosure::Generated, true],
+    'marker off, generated' => [['ai_disclosure' => 'off'], AiDisclosure::Generated, false],
+    'marker on, no provenance' => [['ai_disclosure' => 'marker'], null, false],
+    'notice only, generated' => [['ai_notice' => true], AiDisclosure::Generated, false],
+]);

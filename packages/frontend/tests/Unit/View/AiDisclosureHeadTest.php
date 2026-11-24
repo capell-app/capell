@@ -75,3 +75,36 @@ it('leaves the marker out when the site has disclosure off or the page used no A
     'site on, person-written page' => [['ai_disclosure' => 'marker'], ['ai_disclosure' => 'none']],
     'site on, unknown value' => [['ai_disclosure' => 'marker'], ['ai_disclosure' => '<script>']],
 ]);
+
+/** The WebPage node of the head's JSON-LD graph. */
+function aiDisclosureWebPageNode(string $html): array
+{
+    preg_match('#<script[^>]*application/ld\+json[^>]*>(.*?)</script>#s', $html, $match);
+    $graph = json_decode(html_entity_decode($match[1] ?? '', ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR)['@graph'];
+
+    return collect($graph)->firstWhere('@type', 'WebPage');
+}
+
+it('declares the digital source type in the page JSON-LD when the site turns disclosure on', function (string $disclosure, string $sourceType): void {
+    [$html, $provenanceQueries] = renderAiDisclosureHead(['ai_disclosure' => 'marker'], ['ai_disclosure' => $disclosure]);
+
+    expect(aiDisclosureWebPageNode($html)['digitalSourceType'] ?? null)->toBe($sourceType)
+        ->and($provenanceQueries)->toBe(0)
+        ->and($html)->not->toContain('capell_ai_provenance');
+})->with([
+    'generated' => ['generated', 'https://schema.org/TrainedAlgorithmicMediaDigitalSource'],
+    'assisted' => ['assisted', 'https://schema.org/CompositeWithTrainedAlgorithmicMediaDigitalSource'],
+]);
+
+it('leaves the digital source type out of the JSON-LD when disclosure is off or no AI wrote the page', function (array $siteMeta, array $pageMeta): void {
+    [$html] = renderAiDisclosureHead($siteMeta, $pageMeta);
+
+    expect(aiDisclosureWebPageNode($html))->not->toHaveKey('digitalSourceType')
+        ->and($html)->not->toContain('digitalSourceType');
+})->with([
+    'site off, AI page' => [['ai_disclosure' => 'off'], ['ai_disclosure' => 'generated']],
+    'site unset, AI page' => [[], ['ai_disclosure' => 'assisted']],
+    'site on, person-written page' => [['ai_disclosure' => 'marker'], ['ai_disclosure' => 'none']],
+    'site on, no provenance' => [['ai_disclosure' => 'marker'], []],
+    'site on, unknown value' => [['ai_disclosure' => 'marker'], ['ai_disclosure' => '<script>']],
+]);
