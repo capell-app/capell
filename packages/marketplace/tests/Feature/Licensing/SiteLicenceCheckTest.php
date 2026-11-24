@@ -42,7 +42,7 @@ it('sends only the site domain and licence key and records a licensed site', fun
         'status' => 'active', 'domain' => 'client.com', 'sitesUsed' => 1, 'siteLimit' => 3, 'packages' => ['capell-app/form-builder'],
     ]])]);
 
-    $status = resolve(CheckSiteLicenceAction::class)->handle();
+    $status = CheckSiteLicenceAction::run();
 
     expect($status?->state)->toBe(SiteLicenceState::Licensed);
     Http::assertSent(fn (Request $request): bool => $request->url() === SITE_LICENCE_URL
@@ -62,7 +62,7 @@ it('sends nothing for a site with no paid packages or on a local host', function
 
     Http::fake();
 
-    expect(resolve(CheckSiteLicenceAction::class)->handle()?->state)->toBe($expected);
+    expect(CheckSiteLicenceAction::run()?->state)->toBe($expected);
     Http::assertNothingSent();
 })->with([
     'free packages only' => [null, false, null],
@@ -78,7 +78,7 @@ it('treats a staging copy the marketplace answers as free as needing no notice',
         'status' => 'non_production', 'domain' => 'staging.client.co.uk', 'sitesUsed' => null, 'siteLimit' => null, 'packages' => [],
     ]])]);
 
-    $status = resolve(CheckSiteLicenceAction::class)->handle();
+    $status = CheckSiteLicenceAction::run();
 
     expect($status?->state)->toBe(SiteLicenceState::NonProduction)->and($status?->state->showsNotice())->toBeFalse();
 });
@@ -88,7 +88,7 @@ it('asks for a key when paid packages are installed without one, sending nothing
     config(['capell-marketplace.licence.keys' => []]);
     Http::fake();
 
-    $status = resolve(CheckSiteLicenceAction::class)->handle();
+    $status = CheckSiteLicenceAction::run();
 
     expect($status?->state)->toBe(SiteLicenceState::MissingKey)->and($status?->unlicensedPackages)->toBe(['capell-app/form-builder']);
     Http::assertNothingSent();
@@ -102,7 +102,7 @@ it('names paid packages the key does not cover and reports a full licence', func
         'status' => 'over_limit', 'domain' => 'client.com', 'sitesUsed' => 3, 'siteLimit' => 3, 'packages' => ['capell-app/form-builder'],
     ]])]);
 
-    $status = resolve(CheckSiteLicenceAction::class)->handle();
+    $status = CheckSiteLicenceAction::run();
 
     expect($status?->state)->toBe(SiteLicenceState::OverLimit)
         ->and($status?->unlicensedPackages)->toBe(['acme/paid-widget', 'capell-app/form-builder'])
@@ -115,10 +115,10 @@ it('keeps the last answer when the marketplace cannot be reached', function (): 
     Http::fake([SITE_LICENCE_URL => Http::response(['data' => [
         'status' => 'active', 'domain' => 'client.com', 'sitesUsed' => 1, 'siteLimit' => 3, 'packages' => ['capell-app/form-builder'],
     ]])]);
-    resolve(CheckSiteLicenceAction::class)->handle();
+    CheckSiteLicenceAction::run();
     Http::fake([SITE_LICENCE_URL => Http::response('down', 503)]);
 
-    expect(resolve(CheckSiteLicenceAction::class)->handle()?->state)->toBe(SiteLicenceState::Licensed);
+    expect(CheckSiteLicenceAction::run()?->state)->toBe(SiteLicenceState::Licensed);
 });
 
 // Catches the notice missing from admin, or leaking to people who cannot act on it or onto public pages.
@@ -126,7 +126,7 @@ it('shows the licence notice only inside the admin panel to people who manage ex
     installPaidPackage();
     config(['capell-marketplace.licence.keys' => []]);
     Http::fake();
-    resolve(CheckSiteLicenceAction::class)->handle();
+    CheckSiteLicenceAction::run();
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
     test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);

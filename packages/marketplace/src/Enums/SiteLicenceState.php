@@ -29,4 +29,32 @@ enum SiteLicenceState: string
     {
         return in_array($this, [self::MissingKey, self::OverLimit, self::Expired, self::Unlicensed], true);
     }
+
+    /** The admin notice heading; empty for a state that shows no notice. */
+    public function noticeHeading(): string
+    {
+        return match ($this) {
+            self::MissingKey => __('capell-marketplace::licence.notice.missing_key.heading'),
+            self::OverLimit => __('capell-marketplace::licence.notice.over_limit.heading'),
+            self::Expired => __('capell-marketplace::licence.notice.expired.heading'),
+            self::Unlicensed => __('capell-marketplace::licence.notice.unlicensed.heading'),
+            self::Licensed, self::NonProduction => '',
+        };
+    }
+
+    /**
+     * The admin notice body; empty for a state that shows no notice.
+     *
+     * @param  array<string, int|string|null>  $replace
+     */
+    public function noticeBody(array $replace): string
+    {
+        return match ($this) {
+            self::MissingKey => __('capell-marketplace::licence.notice.missing_key.body', $replace),
+            self::OverLimit => __('capell-marketplace::licence.notice.over_limit.body', $replace),
+            self::Expired => __('capell-marketplace::licence.notice.expired.body', $replace),
+            self::Unlicensed => __('capell-marketplace::licence.notice.unlicensed.body', $replace),
+            self::Licensed, self::NonProduction => '',
+        };
+    }
 }
