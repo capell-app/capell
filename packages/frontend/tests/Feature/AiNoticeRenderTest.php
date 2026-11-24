@@ -89,7 +89,7 @@ it('declares the digital source type in the served page JSON-LD only when the si
         ->and($html)->not->toContain('capell_ai_provenance');
 
     if ($expected) {
-        expect($html)->toContain('trainedAlgorithmicMedia');
+        expect($html)->toContain('"digitalSourceType":"https:\\/\\/schema.org\\/TrainedAlgorithmicMediaDigitalSource"');
     }
 })->with([
     'marker on, generated' => [['ai_disclosure' => 'marker'], AiDisclosure::Generated, true],

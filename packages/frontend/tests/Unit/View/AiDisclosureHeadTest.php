@@ -92,8 +92,8 @@ it('declares the digital source type in the page JSON-LD when the site turns dis
         ->and($provenanceQueries)->toBe(0)
         ->and($html)->not->toContain('capell_ai_provenance');
 })->with([
-    'generated' => ['generated', 'https://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia'],
-    'assisted' => ['assisted', 'https://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia'],
+    'generated' => ['generated', 'https://schema.org/TrainedAlgorithmicMediaDigitalSource'],
+    'assisted' => ['assisted', 'https://schema.org/CompositeWithTrainedAlgorithmicMediaDigitalSource'],
 ]);
 
 it('leaves the digital source type out of the JSON-LD when disclosure is off or no AI wrote the page', function (array $siteMeta, array $pageMeta): void {
