@@ -17,6 +17,7 @@ trait HasMigrations
             '2026_11_13_000001_create_admin_user_invitation_tokens_table',
             '2026_11_14_000001_grant_publish_page_where_update_page_is_granted',
             '2026_11_15_000001_create_admin_permission_default_grants_table',
+            '2026_11_26_000001_create_admin_login_link_tokens_table',
         ];
     }
 

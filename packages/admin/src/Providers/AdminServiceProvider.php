@@ -9,6 +9,7 @@ use Capell\Admin\Actions\CreateDefaultPagesAction;
 use Capell\Admin\Actions\Media\StoreAdminUploadedFilesAction;
 use Capell\Admin\Actions\Media\ValidateAdminUploadStateAction;
 use Capell\Admin\Actions\Notifications\ResolveDefaultPackageOperationRecipientsAction;
+use Capell\Admin\Console\Commands\AdminLoginLinkCommand;
 use Capell\Admin\Console\Commands\CacheConfiguratorsCommand;
 use Capell\Admin\Console\Commands\CacheWidgetsCommand;
 use Capell\Admin\Console\Commands\ClearCacheCommand;
@@ -390,6 +391,7 @@ class AdminServiceProvider extends AbstractPackageServiceProvider
                 InstallCommand::class,
                 PublishResourcesCommand::class,
                 PruneAdminUploadGrantsCommand::class,
+                AdminLoginLinkCommand::class,
                 RepairComposerDriftCommand::class,
                 SendUpgradeSummaryNotificationCommand::class,
                 SetupCommand::class,

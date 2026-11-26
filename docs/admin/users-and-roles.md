@@ -16,6 +16,25 @@ The person opens the link from their email and chooses their own password.
 
 ![The page where an invited person chooses a password](../images/generated/admin/action-accept-invitation.png)
 
+## Sign in with a link
+
+People can choose **Email me a sign-in link instead** on the login page. Capell emails a link that signs them in once, without their password. The page gives the same answer whether or not the address has an account, so nobody can use it to find out who has one.
+
+Each link:
+
+- works once, and only after the person presses **Sign in**, so mail scanners that open links cannot use it up
+- expires after 15 minutes (`CAPELL_ADMIN_LOGIN_LINK_EXPIRES_IN_MINUTES`)
+- stops working when a newer link is sent or the person's password changes
+- signs in only people the panel admits. Anyone with two-factor authentication turned on must sign in with their password and code instead.
+
+Operators and automated test harnesses can print a link from the command line instead of emailing one:
+
+```bash
+php artisan capell:admin-login-link editor@example.com
+```
+
+Treat the printed link like a password. Set `CAPELL_ADMIN_LOGIN_LINK_EMAIL_REQUESTS=false` to remove the login-page option, or `CAPELL_ADMIN_LOGIN_LINKS_ENABLED=false` to turn links off entirely, including the command.
+
 ## Add a user
 
 1. Open **Users** in the admin sidebar.

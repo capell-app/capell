@@ -9,6 +9,8 @@ use Capell\Admin\Contracts\Extenders\DeclaresFullPageOnlyMiddleware;
 use Capell\Admin\Enums\RouteOwnershipEnum;
 use Capell\Admin\Exceptions\PanelTopologyRefreshRequiredException;
 use Capell\Admin\Filament\Pages\Auth\AcceptInvitation;
+use Capell\Admin\Filament\Pages\Auth\RequestLoginLink;
+use Capell\Admin\Filament\Pages\Auth\SignInWithLink;
 use Capell\Admin\Http\Controllers\Transfers\DownloadExportInOriginatingPanelController;
 use Capell\Admin\Http\Controllers\Transfers\DownloadImportFailuresInOriginatingPanelController;
 use Capell\Admin\Http\Middleware\EnsureInstalledPanelAvailable;
@@ -65,7 +67,7 @@ final class InstalledPanelRuntime
      * Filament's sign-in, password-reset and registration pages and Capell's invitation page, which serve visitors who cannot have signed
      * in yet. Email verification serves signed-in users, so it keeps the panel's authentication.
      */
-    private const array SIGN_IN_PAGES = [Login::class, RequestPasswordReset::class, ResetPassword::class, Register::class, AcceptInvitation::class];
+    private const array SIGN_IN_PAGES = [Login::class, RequestPasswordReset::class, ResetPassword::class, Register::class, AcceptInvitation::class, RequestLoginLink::class, SignInWithLink::class];
 
     /**
      * The namespace every Capell package ships under, Core and its companion packages alike. Their code only
