@@ -66,6 +66,9 @@ jobs:
           extensions: dom, mbstring, intl, pdo_sqlite, sqlite3, pdo_mysql, zip, gd, bcmath, exif, curl
           tools: composer:v2
           coverage: none
+          # The dev server crashed once in opcache.so on the runner (general protection fault, PHP 8.4.28), which
+          # reads as a dead server. A one-off install and page crawl gains nothing from opcache.
+          ini-values: opcache.enable_cli=0
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
