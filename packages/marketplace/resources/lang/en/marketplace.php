@@ -123,7 +123,6 @@ return [
         'observation_unknown' => 'Not recorded',
         'licence_retained' => 'Licence refresh failed; showing retained local status.',
         'page_title' => 'Purchases and licences',
-        'heading' => 'Purchases and licences',
         'description' => 'Review account purchases, installed paid extensions, renewals, and support.',
         'account_heading' => 'Account purchases',
         'installed_heading' => 'Installed paid extensions',
