@@ -77,6 +77,7 @@ final class ExtensionDetailData extends Data
         public readonly string $currency = 'USD',
         /** @var array<string, mixed> */
         public readonly array $trial = [],
+        public readonly ?ExtensionListingData $listing = null,
     ) {}
 
     /**
@@ -139,6 +140,7 @@ final class ExtensionDetailData extends Data
             maturityLabel: $catalogueReleaseMetadata->maturityLabel,
             currency: self::optionalString($payload['currency'] ?? $payload['price_currency'] ?? data_get($payload, 'commercial.currency')) ?? 'USD',
             trial: self::arrayValue($payload['trial'] ?? data_get($payload, 'commercial.trial', [])),
+            listing: ExtensionListingData::fromApiResponse($payload),
         );
     }
 
