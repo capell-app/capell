@@ -267,7 +267,9 @@
         data-capell-marketplace-product-bundle="{{ $record['product_bundle'] }}"
     @endif
 >
-    <figure class="relative h-28 overflow-hidden bg-gray-100 dark:bg-gray-950">
+    <figure
+        class="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-950"
+    >
         @if (is_array($managementSurface))
             <button
                 type="button"
@@ -355,7 +357,7 @@
 
         @if ($imageUrls->count() > 1)
             <div
-                class="absolute inset-x-0 bottom-20 z-20 flex justify-center gap-1.5"
+                class="absolute inset-x-0 bottom-3 z-20 flex justify-center gap-1.5"
             >
                 @foreach ($imageUrls as $extensionImageUrl)
                     <a
@@ -420,64 +422,58 @@
                 @endif
             @endif
         </div>
-
-        <div
-            class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-3 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 pt-12"
-        >
-            <div
-                class="min-w-0 rounded-lg border border-white/20 bg-gray-950/75 px-2.5 py-2 shadow-lg shadow-black/20 backdrop-blur-sm"
-            >
-                <p class="text-xs font-semibold text-white/85 uppercase">
-                    {{ $formatState($productGroup ?? __('capell-admin::generic.extensions')) }}
-                </p>
-                <h3
-                    id="{{ $cardTitleId }}"
-                    class="mt-0.5 truncate text-base font-semibold text-white"
-                >
-                    {{ $label }}
-                </h3>
-
-                @if ($isMarketplaceRecord && $ratingStars !== [])
-                    <div
-                        class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/85"
-                    >
-                        <span
-                            class="flex items-center gap-1"
-                            role="img"
-                            aria-label="{{ $ratingAriaLabel }}"
-                        >
-                            @foreach ($ratingStars as $ratingStar)
-                                <span
-                                    class="relative inline-flex size-3.5 text-white/35"
-                                    aria-hidden="true"
-                                >
-                                    <span>★</span>
-
-                                    @if ($ratingStar !== 'empty')
-                                        <span
-                                            @class([
-                                            'text-warning-400 absolute inset-0 overflow-hidden',
-                                            'w-1/2' => $ratingStar === 'half',
-                                            'w-full' => $ratingStar === 'full',
-                                        ])
-                                        >
-                                            ★
-                                        </span>
-                                    @endif
-                                </span>
-                            @endforeach
-                        </span>
-
-                        <span>
-                            {{ $ratingAverage !== null ? $ratingAverageLabel . ' · ' . $ratingsCountLabel : $ratingsCountLabel }}
-                        </span>
-                    </div>
-                @endif
-            </div>
-        </div>
     </figure>
 
     <div class="flex flex-1 flex-col gap-2.5 p-2">
+        <div class="min-w-0">
+            <p class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">
+                {{ $formatState($productGroup ?? __('capell-admin::generic.extensions')) }}
+            </p>
+            <h3
+                id="{{ $cardTitleId }}"
+                class="mt-0.5 text-base font-semibold break-words text-gray-950 dark:text-white"
+            >
+                {{ $label }}
+            </h3>
+
+            @if ($isMarketplaceRecord && $ratingStars !== [])
+                <div
+                    class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300"
+                >
+                    <span
+                        class="flex items-center gap-1"
+                        role="img"
+                        aria-label="{{ $ratingAriaLabel }}"
+                    >
+                        @foreach ($ratingStars as $ratingStar)
+                            <span
+                                class="relative inline-flex size-3.5 text-gray-300 dark:text-white/30"
+                                aria-hidden="true"
+                            >
+                                <span>★</span>
+
+                                @if ($ratingStar !== 'empty')
+                                    <span
+                                        @class([
+                                    'text-warning-400 absolute inset-0 overflow-hidden',
+                                    'w-1/2' => $ratingStar === 'half',
+                                    'w-full' => $ratingStar === 'full',
+                                ])
+                                    >
+                                        ★
+                                    </span>
+                                @endif
+                            </span>
+                        @endforeach
+                    </span>
+
+                    <span>
+                        {{ $ratingAverage !== null ? $ratingAverageLabel . ' · ' . $ratingsCountLabel : $ratingsCountLabel }}
+                    </span>
+                </div>
+            @endif
+        </div>
+
         <p class="line-clamp-2 text-sm leading-5 text-gray-600 dark:text-gray-300">{{ $description }}</p>
 
         @if ($attentionReasons !== [])
@@ -544,22 +540,22 @@
         </div>
 
         <div
-            class="mt-auto flex items-end justify-between gap-3 border-t border-gray-950/5 pt-2 text-sm dark:border-white/10"
+            class="mt-auto flex flex-col gap-3 border-t border-gray-950/5 pt-3 text-sm dark:border-white/10"
         >
-            <div class="min-w-0">
-                <div
-                    class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500"
-                >
-                    {{ __('capell-admin::table.version') }}
+            <div class="flex flex-wrap items-start gap-x-6 gap-y-2">
+                <div class="min-w-0">
+                    <div
+                        class="text-xs font-medium text-gray-400 uppercase dark:text-gray-500"
+                    >
+                        {{ __('capell-admin::table.version') }}
+                    </div>
+                    <div
+                        class="mt-1 font-semibold break-words text-gray-950 dark:text-white"
+                    >
+                        {{ $version ?? __('capell-admin::generic.unknown') }}
+                    </div>
                 </div>
-                <div
-                    class="mt-1 truncate font-semibold text-gray-950 dark:text-white"
-                >
-                    {{ $version ?? __('capell-admin::generic.unknown') }}
-                </div>
-            </div>
 
-            <div class="flex min-w-0 items-end gap-3 text-right">
                 @if ($showPrice)
                     <div class="min-w-0">
                         <div
@@ -568,7 +564,7 @@
                             {{ __('capell-admin::marketplace.card.price_label') }}
                         </div>
                         <div
-                            class="mt-1 truncate font-semibold text-gray-950 dark:text-white"
+                            class="mt-1 font-semibold break-words text-gray-950 dark:text-white"
                         >
                             {{ $priceLabel }}
                         </div>
@@ -581,13 +577,15 @@
                             {{ __('capell-admin::table.latest_version') }}
                         </div>
                         <div
-                            class="mt-1 truncate font-semibold text-gray-950 dark:text-white"
+                            class="mt-1 font-semibold break-words text-gray-950 dark:text-white"
                         >
                             {{ $latestVersion }}
                         </div>
                     </div>
                 @endif
+            </div>
 
+            <div class="flex flex-wrap items-center justify-end gap-2">
                 @if ($isMarketplaceRecord && $composerName !== '')
                     <button
                         type="button"
