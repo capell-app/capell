@@ -18,7 +18,7 @@ Broad tests and preflights use the [host release verification gate](../../docs/r
 - Upgrade path from the last published release (run by the merge queue, on `main` and
   nightly, not per PR): `heavy run -w 2 upgrade-path -- scripts/upgrade-path.sh`. Run it
   locally for a change to migrations, upgrade steps or the upgrade pipeline, and again with
-  `--database mariadb` (needs Docker) for a migration, since production runs MariaDB 10.11. A removal of
+  `--database mariadb` (needs Docker) for a migration, since production runs MariaDB 11.8. A removal of
   data that is intended is declared, with its reason, in
   `scripts/upgrade-path/allowed-changes.json`.
 - Extension contracts: `composer check:extension-surfaces` and
