@@ -84,6 +84,19 @@ check 'a removal declared in the allowed changes passes' 0 $?
 compare deleted-rows "$scratch/allowed.json"
 check 'an allowed change does not excuse a different loss' 1 $?
 
+echo '{"tables": {}, "columns": {}, "renamed_tables": {"pages": {"to": "documents", "reason": "renamed"}}}' >"$scratch/allowed-rename.json"
+snapshot_after renamed "ALTER TABLE pages RENAME TO documents;"
+compare renamed "$scratch/allowed-rename.json"
+check 'a declared rename that keeps the rows passes' 0 $?
+compare renamed
+check 'an undeclared rename fails as a dropped table' 1 $?
+snapshot_after renamed-lossy "ALTER TABLE pages RENAME TO documents; DELETE FROM documents WHERE title = 'About';"
+compare renamed-lossy "$scratch/allowed-rename.json"
+check 'a declared rename still fails when rows are lost' 1 $?
+contains 'the loss is counted under the new name' "$scratch/renamed-lossy.out" 'documents lost rows: 3 before, 2 after'
+compare dropped-table "$scratch/allowed-rename.json"
+check 'a declared rename fails when the new table is missing' 1 $?
+
 php "$database" pick-column "$scratch/before.json" "$scratch/none.json" >"$scratch/pick.out" 2>&1
 check 'a droppable populated column is found for the seeded fault' 'pages summary' "$(cat "$scratch/pick.out")"
 

@@ -10,6 +10,14 @@
             "ae2a76b918acf386805cba8accdaeb9a8fdc4a62c811121ec1fefa65c8dfb8f6"
         ]
     },
+    "create_marketplace_client_connection_sessions_table": {
+        "names": [
+            "2026_11_26_000001_create_marketplace_client_connection_sessions_table"
+        ],
+        "sha256": [
+            "b2796daebd37d00ade340804d13439c3bce28c55d6e474ebf36c274d3cd50b12"
+        ]
+    },
     "create_marketplace_connection_domains_table": {
         "names": [
             "2026_05_09_000003_create_marketplace_connection_domains_table",

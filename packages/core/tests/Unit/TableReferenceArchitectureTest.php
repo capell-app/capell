@@ -85,7 +85,7 @@ it('routes first-party table references through the resolver', function (): void
         'capell_marketplace_installs', 'capell_public_render_contract_events', 'capell_reporting_incidents',
         'capell_upgrade_locks', 'capell_upgrade_log', 'capell_upgrade_run_events', 'capell_upgrade_runs',
         'content_graph_edges', 'content_locks', 'deletion_batch_records', 'deletion_batches', 'editor_scratch_drafts',
-        'languages', 'layout_content_snapshots', 'layouts', 'marketplace_account_connection_sessions',
+        'languages', 'layout_content_snapshots', 'layouts', 'marketplace_account_connection_sessions', 'marketplace_client_connection_sessions',
         'marketplace_install_attempt_events', 'marketplace_install_attempts', 'marketplace_install_flow_sessions',
         'marketplace_install_intents', 'marketplace_instances', 'marketplace_update_advisory_snapshots',
         'marketplace_update_notice_dismissals', 'metric_collection_runs', 'metric_daily_rollups', 'metric_events',

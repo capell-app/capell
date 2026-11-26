@@ -48,7 +48,7 @@ final class MarketplaceAccountConnectionSession extends Model
         'last_error',
     ];
 
-    protected $table = 'marketplace_account_connection_sessions';
+    protected $table = 'marketplace_client_connection_sessions';
 
     #[Override]
     protected function casts(): array
