@@ -2644,9 +2644,25 @@ it('does not ask for cache selection after a fresh seeded install', function ():
         ->and($fake->capturedInput->cachesToClear)->toBe([]);
 });
 
-it('falls back to the php artisan serve address when APP_URL is empty', function (): void {
+it('refuses an unattended install outside local when APP_URL is empty', function (): void {
     setupInstallTest(['capell-app/frontend']);
     markInstallTestPackageAsFrontend('capell-app/frontend');
+    app()->detectEnvironment(fn (): string => 'production');
+    config()->set('app.url', '');
+    $fake = bindFakeRunInstallAction();
+
+    expect(fn () => artisanCommand('capell:install', [
+        '--packages' => 'capell-app/frontend',
+        '--no-interaction' => true,
+    ])->run())->toThrow(NonInteractiveInputRequiredException::class, 'APP_URL');
+
+    expect($fake->callCount)->toBe(0);
+});
+
+it('falls back to the php artisan serve address when APP_URL is empty in the local environment', function (): void {
+    setupInstallTest(['capell-app/frontend']);
+    markInstallTestPackageAsFrontend('capell-app/frontend');
+    app()->detectEnvironment(fn (): string => 'local');
     config()->set('app.url', '');
     $fake = bindFakeRunInstallAction();
 

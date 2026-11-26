@@ -513,6 +513,7 @@ function installCommandForOptions(array $options, bool $interactive = false): In
 }
 
 it('offers the php artisan serve address as the default first site URL when APP_URL is empty', function (): void {
+    app()->detectEnvironment(fn (): string => 'local');
     config(['app.url' => '']);
     $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
     $previousFallback = $fallback->getValue();
