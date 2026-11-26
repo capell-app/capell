@@ -49,7 +49,9 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
         throw_if($port === false, RuntimeException::class, 'CAPELL_SCREENSHOT_PORT must be an integer from 1024 to 65535.');
         $localOrigin = 'http://127.0.0.1:' . $port;
         config([
-            'capell-marketplace.marketplace.base_url' => $localOrigin . '/api/v1',
+            // The client only talks to an https Marketplace. The fixture fake below
+            // answers this origin in-process, so no request leaves the machine.
+            'capell-marketplace.marketplace.base_url' => 'https://marketplace.capell.example/api/v1',
             'capell-marketplace.marketplace.web_url' => $localOrigin,
         ]);
     }

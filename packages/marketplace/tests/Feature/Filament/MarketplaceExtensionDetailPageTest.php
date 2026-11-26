@@ -651,3 +651,44 @@ it('renders supported release text safely in history and update consent without 
         ->and(MarketplaceInstallAttempt::query()->count())->toBe(0);
     Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
 })->with(['summary', 'notes', 'changelog', 'body', 'description']);
+
+it('offers the connect account action in the install panel to a manager on an unconnected site', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo([
+        MarketplacePermission::ViewMarketplacePage->value,
+        ExtensionsPage::MANAGE_PERMISSION,
+    ]);
+
+    config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
+    Http::fake(['https://marketplace.test/api/extensions/seo-suite' => Http::response([
+        'data' => [
+            'slug' => 'seo-suite',
+            'name' => 'Advanced SEO Suite',
+            'composer_name' => 'capell-app/seo-suite',
+            'kind' => 'plugin',
+            'licence' => ['licence_status' => 'none', 'can_install' => false],
+        ],
+    ])]);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertSee('Why not?')
+        ->assertActionVisible('connectMarketplaceAccount')
+        ->assertSeeHtml('data-capell-marketplace-connect-account')
+        ->assertSee(__('capell-marketplace::marketplace.marketplace.connect_account_button'));
+});
+
+it('does not offer the connect account action to a viewer who cannot manage extensions', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
+    Http::fake(['https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse()]);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertDontSeeHtml('data-capell-marketplace-connect-account');
+});
