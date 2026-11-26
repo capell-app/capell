@@ -16,6 +16,8 @@
 #   --summary FILE      Append the markdown timing table here
 #                       (default: $GITHUB_STEP_SUMMARY when set, otherwise only printed).
 #   --minimal           Run capell:install --minimal (Core, Admin, Frontend and the default theme only).
+#   --preset NAME       Run capell:install --preset=NAME (a site type such as marketing), as a new user's first install.
+#   --publish           Run capell:install --publish, so the draft pages are live when the install ends.
 #   --keep              Keep the generated app after the run.
 #   -h, --help          Show this help.
 #
@@ -43,6 +45,8 @@ WORKDIR=""
 SUMMARY="${GITHUB_STEP_SUMMARY:-}"
 KEEP=0
 MINIMAL=0
+PRESET=""
+PUBLISH=0
 # Higher than any released 1.x, so every ^1.0.x constraint in the Packagist packages accepts it.
 PATH_VERSION="1.999.0"
 
@@ -52,6 +56,7 @@ STEPS=(
     "Run capell:install|step_install"
     "Start php artisan serve|step_start_server"
     "GET / returns 200 and renders|step_first_page"
+    "GET /admin/login returns 200|step_admin_login"
 )
 
 AUTO_WORKDIR=0
@@ -86,7 +91,11 @@ parse_args() {
                 MINIMAL=1
                 shift
                 ;;
-            --core-path | --skeleton | --budget | --port | --workdir | --summary)
+            --publish)
+                PUBLISH=1
+                shift
+                ;;
+            --core-path | --skeleton | --budget | --port | --workdir | --summary | --preset)
                 (($# >= 2)) || usage_error "$1 needs a value"
                 case "$1" in
                     --core-path) CORE_PATH="$2" ;;
@@ -95,6 +104,7 @@ parse_args() {
                     --port) PORT="$2" ;;
                     --workdir) WORKDIR="$2" ;;
                     --summary) SUMMARY="$2" ;;
+                    --preset) PRESET="$2" ;;
                 esac
                 shift 2
                 ;;
@@ -202,7 +212,11 @@ step_install() {
 }
 
 install_profile_args() {
-    ((MINIMAL == 1)) && printf '%s' '--minimal'
+    local args=()
+    ((MINIMAL == 1)) && args+=(--minimal)
+    [[ -z "$PRESET" ]] || args+=("--preset=$PRESET")
+    ((PUBLISH == 1)) && args+=(--publish)
+    printf '%s' "${args[*]-}"
     return 0
 }
 
@@ -239,6 +253,13 @@ step_first_page() {
         echo "response body looks like an error page" >>"$LOG_DIR/first-page.log"
         return 1
     fi
+}
+
+step_admin_login() {
+    local status
+    status="$(curl -s -o "$LOG_DIR/admin-login.html" -w '%{http_code}' --max-time 60 "http://127.0.0.1:$PORT/admin/login")"
+    printf 'status=%s\n' "$status" >"$LOG_DIR/admin-login.log"
+    [[ "$status" == "200" ]]
 }
 
 write_summary() { # result line

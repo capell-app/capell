@@ -94,8 +94,31 @@ contains 'the masked failure is marked' "$scratch/masked.md" '| Masked step | fa
     parse_args --core-path "$root" --minimal
     printf 'minimal=[%s]\n' "$(install_profile_args)"
 ) >"$scratch/profile.out" 2>&1
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root" --preset marketing --publish
+    printf 'preset=[%s]\n' "$(install_profile_args)"
+) >>"$scratch/profile.out" 2>&1
 contains 'default install passes no profile' "$scratch/profile.out" 'default=[]'
 contains '--minimal passes --minimal to capell:install' "$scratch/profile.out" 'minimal=[--minimal]'
+contains '--preset and --publish are passed to capell:install' "$scratch/profile.out" 'preset=[--preset=marketing --publish]'
+
+bash "$script" --preset >"$scratch/nopreset.out" 2>&1
+check '--preset without a value exits 2' 2 $?
+
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root"
+    LOG_DIR="$scratch/logs"
+    mkdir -p "$LOG_DIR"
+    # shellcheck disable=SC2034 # read by step_admin_login in the sourced script
+    PORT=1
+    step_admin_login
+) >/dev/null 2>&1
+admin_status=$?
+check 'the admin sign-in page step fails when nothing answers' 1 $((admin_status > 0 ? 1 : 0))
 
 if ((failures > 0)); then
     printf '%d check(s) failed\n' "$failures"
