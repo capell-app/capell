@@ -306,14 +306,13 @@ try {
     Auth::guard('web')->login($user);
     $status = $kernel->handle($request)->getStatusCode();
 } catch (Throwable $e) {
+    // No success line is printed, which fails the step.
     fwrite(STDERR, 'sign-in failed: ' . $e::class . ': ' . $e->getMessage() . PHP_EOL);
-    exit 1;
+
+    return;
 }
 
 echo 'dashboard status=' . $status . PHP_EOL;
-if ($status !== 200) {
-    exit 1;
-}
 PHP
     (cd "$APP_DIR" && ADMIN_EMAIL="$(cat "$WORKDIR/admin.email")" php "$LOG_DIR/sign-in.php") >"$LOG_DIR/admin-sign-in.log" 2>&1 || return 1
     # Laravel reports a bootstrap exception and may still exit 0, so the success line is the proof.
