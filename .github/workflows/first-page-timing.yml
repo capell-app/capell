@@ -50,10 +50,15 @@ jobs:
         run: bash tests/Shell/first-page-timing.sh
       - name: Time the fresh app to its first page
         run: bash scripts/first-page-timing.sh --workdir "$RUNNER_TEMP/first-page"
+      - name: Time a new user's marketing install to a published site and its admin sign-in page
+        # A hang ceiling of ten minutes, the target for a new user from create-project to a first page.
+        run: bash scripts/first-page-timing.sh --preset marketing --publish --budget 600 --workdir "$RUNNER_TEMP/first-page-marketing" --port 8001
       - name: Upload logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: first-page-timing-logs
-          path: ${{ runner.temp }}/first-page/logs
+          path: |
+            ${{ runner.temp }}/first-page/logs
+            ${{ runner.temp }}/first-page-marketing/logs
           if-no-files-found: ignore
