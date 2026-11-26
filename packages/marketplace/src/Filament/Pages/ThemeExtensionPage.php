@@ -74,6 +74,23 @@ final class ThemeExtensionPage extends Page
         ]);
     }
 
+    #[Override]
+    public function getSubheading(): ?string
+    {
+        $manifest = $this->manifest();
+
+        return $manifest?->marketplaceSummary ?? $manifest?->description;
+    }
+
+    /**
+     * Applying to all sites only replaces the default theme for global
+     * administrators; site-scoped administrators change their own sites.
+     */
+    public function appliesDefaultTheme(): bool
+    {
+        return SiteAccess::current()->isGlobal();
+    }
+
     public function applyTheme(): void
     {
         $siteId = $this->selectedSiteIdForApply();
@@ -98,12 +115,14 @@ final class ThemeExtensionPage extends Page
 
         $this->dispatch('$refresh');
 
+        $allKey = $this->appliesDefaultTheme() ? 'applied_all' : 'applied_all_scoped';
+
         Notification::make()
             ->title($siteId === null
-                ? __('capell-marketplace::marketplace.theme_extension.applied_all')
+                ? __('capell-marketplace::marketplace.theme_extension.' . $allKey)
                 : __('capell-marketplace::marketplace.theme_extension.applied_site'))
             ->body($siteId === null
-                ? __('capell-marketplace::marketplace.theme_extension.applied_all_body', [
+                ? __('capell-marketplace::marketplace.theme_extension.' . $allKey . '_body', [
                     'theme' => $this->themeName(),
                 ])
                 : __('capell-marketplace::marketplace.theme_extension.applied_site_body', [
