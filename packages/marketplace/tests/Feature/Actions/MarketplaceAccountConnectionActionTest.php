@@ -5,7 +5,9 @@ declare(strict_types=1);
 use Capell\Marketplace\Actions\CompleteMarketplaceAccountConnectionAction;
 use Capell\Marketplace\Actions\StartMarketplaceAccountConnectionAction;
 use Capell\Marketplace\Enums\MarketplaceAccountConnectionSessionStatus;
+use Capell\Marketplace\Enums\MarketplaceConnectionFailure;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
+use Capell\Marketplace\Exceptions\MarketplaceConnectionStartException;
 use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceAccountConnectionSession;
 use Capell\Marketplace\Models\MarketplaceInstance;
@@ -146,8 +148,13 @@ it('marks the local account session failed when marketplace cannot start the rem
         'https://capell.test/api/v1/marketplace/connections' => Http::response(['message' => 'Marketplace unavailable.'], 503),
     ]);
 
-    expect(fn (): string => StartMarketplaceAccountConnectionAction::run())
-        ->toThrow(RuntimeException::class, (string) __('capell-marketplace::marketplace.errors.remote_failure'));
+    try {
+        StartMarketplaceAccountConnectionAction::run();
+        test()->fail('The start should fail when Marketplace is unavailable.');
+    } catch (MarketplaceConnectionStartException $marketplaceConnectionStartException) {
+        expect($marketplaceConnectionStartException->failure)->toBe(MarketplaceConnectionFailure::Service)
+            ->and($marketplaceConnectionStartException->getPrevious())->toBeInstanceOf(MarketplaceRemoteFailureException::class);
+    }
 
     $session = expectPresent(MarketplaceAccountConnectionSession::query()->first());
 

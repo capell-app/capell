@@ -7,11 +7,14 @@ namespace Capell\Marketplace\Actions;
 use Capell\Marketplace\Enums\MarketplaceAccountConnectionSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceConnectionFailure;
 use Capell\Marketplace\Exceptions\MarketplaceConnectionStartException;
+use Capell\Marketplace\Exceptions\MarketplaceRemoteFailureException;
 use Capell\Marketplace\Models\MarketplaceAccountConnectionSession;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceApprovalUrl;
 use Carbon\CarbonImmutable;
 use Composer\InstalledVersions;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Str;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -42,16 +45,20 @@ final class StartMarketplaceAccountConnectionAction
         $codeVerifier = Str::random(96);
         $callbackUrl = $appUrl . route('capell-marketplace.account-connection.callback', [], false);
 
-        $session = MarketplaceAccountConnectionSession::query()->create([
-            'state_hash' => hash('sha256', $state),
-            'code_verifier_hash' => hash('sha256', $codeVerifier),
-            'code_verifier_encrypted' => $codeVerifier,
-            'claimed_domain' => $host,
-            'app_url' => $appUrl,
-            'callback_url' => $callbackUrl,
-            'status' => MarketplaceAccountConnectionSessionStatus::Pending,
-            'expires_at' => now()->addMinutes(10),
-        ]);
+        try {
+            $session = MarketplaceAccountConnectionSession::query()->create([
+                'state_hash' => hash('sha256', $state),
+                'code_verifier_hash' => hash('sha256', $codeVerifier),
+                'code_verifier_encrypted' => $codeVerifier,
+                'claimed_domain' => $host,
+                'app_url' => $appUrl,
+                'callback_url' => $callbackUrl,
+                'status' => MarketplaceAccountConnectionSessionStatus::Pending,
+                'expires_at' => now()->addMinutes(10),
+            ]);
+        } catch (QueryException $queryException) {
+            throw new MarketplaceConnectionStartException(MarketplaceConnectionFailure::Storage, $queryException);
+        }
 
         try {
             $response = $this->marketplace->createAccountConnectionSession([
@@ -77,7 +84,12 @@ final class StartMarketplaceAccountConnectionAction
                 'last_error' => $throwable::class,
             ]);
 
-            throw $throwable;
+            throw match (true) {
+                $throwable instanceof MarketplaceConnectionStartException => $throwable,
+                $throwable instanceof ConnectionException => new MarketplaceConnectionStartException(MarketplaceConnectionFailure::Unreachable, $throwable),
+                $throwable instanceof MarketplaceRemoteFailureException && $throwable->httpStatus >= 400 && $throwable->httpStatus < 500 => new MarketplaceConnectionStartException(MarketplaceConnectionFailure::Rejected, $throwable),
+                default => new MarketplaceConnectionStartException(MarketplaceConnectionFailure::Service, $throwable),
+            };
         }
 
         $session->update([
