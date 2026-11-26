@@ -6,11 +6,14 @@ use Capell\Admin\Contracts\Extenders\PageSchemaExtender;
 use Capell\Admin\Data\AdminSurfaceContributionData;
 use Capell\Admin\Enums\AdminSurfaceContributionType;
 use Capell\Admin\Filament\Configurators\Pages\DefaultPageConfigurator;
+use Capell\Admin\Filament\Configurators\Pages\LandingPageConfigurator;
+use Capell\Admin\Filament\Configurators\Pages\ResultsPageConfigurator;
 use Capell\Admin\Filament\Pages\SettingsPage;
 use Capell\Admin\Filament\Pages\SitemapPage;
 use Capell\Admin\Filament\Resources\Sites\SiteResource;
 use Capell\Admin\Support\AdminSurfaceContributionRegistry;
 use Capell\Admin\Tests\Fixtures\Autoload\TestSchemaExtenderForRegistrar;
+use Capell\Core\Exceptions\ExtensionContributionConflictException;
 use Capell\Core\Support\Extensions\ExtensionPosition;
 
 it('creates page contribution data', function (): void {
@@ -172,4 +175,23 @@ it('clears warmed groups and keeps contribution types independent', function ():
     $registry->register(AdminSurfaceContributionData::resource(SiteResource::class, 'Site'));
 
     expect($registry->resourcesForGroup('Site'))->toBe(['default' => SiteResource::class]);
+});
+
+it('keeps a supported replacement when the contribution it superseded is registered again mid-request', function (): void {
+    // Catches: installing an extension from the browser on a site with Frontend Optimizer. The serving panel had
+    // already replaced the Page blueprint configurator; the install registered admin's own again and the registry
+    // refused, so every in-browser install failed with "cannot replace it implicitly".
+    $registry = new AdminSurfaceContributionRegistry;
+    $canonical = AdminSurfaceContributionData::configurator(class: DefaultPageConfigurator::class, group: 'Blueprints', name: 'page', owner: 'capell-app/admin', source: 'admin');
+    $replacement = AdminSurfaceContributionData::configurator(class: LandingPageConfigurator::class, group: 'Blueprints', name: 'page', owner: 'capell-app/frontend-optimizer', source: 'frontend-optimizer');
+
+    $registry->register($canonical);
+    $registry->replace($replacement);
+    $registry->register($canonical);
+
+    expect($registry->configuratorsForGroup('Blueprints'))->toBe(['page' => LandingPageConfigurator::class]);
+
+    // Anything other than the superseded contribution is still an implicit collision.
+    expect(fn () => $registry->register(AdminSurfaceContributionData::configurator(class: ResultsPageConfigurator::class, group: 'Blueprints', name: 'page', owner: 'vendor/other', source: 'other')))
+        ->toThrow(ExtensionContributionConflictException::class);
 });

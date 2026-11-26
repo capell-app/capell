@@ -486,8 +486,10 @@ it('finishes in the browser the install of an extension whose code Composer alre
 
     CapellCore::forcePackageInstalled('capell-app/seo-suite');
 
+    // Installed: nothing to finish and no "install this yourself" prompt left behind.
     Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
-        ->assertDontSeeHtml('data-capell-marketplace-finish-install');
+        ->assertDontSeeHtml('data-capell-marketplace-finish-install')
+        ->assertDontSeeHtml('data-capell-marketplace-manual-install-cta');
 });
 
 it('refuses a finish-install call from a user who may not reach the marketplace', function (): void {

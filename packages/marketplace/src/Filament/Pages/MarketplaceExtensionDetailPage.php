@@ -556,7 +556,9 @@ final class MarketplaceExtensionDetailPage extends Page
      */
     public function requiresManualInstallInstructions(): bool
     {
+        // An installed extension has nothing left to install, by hand or otherwise.
         return $this->manualInstallCommands() !== []
+            && $this->installedVersion() === null
             && ! $this->environmentReadiness()->canInstallAutomatically();
     }
 

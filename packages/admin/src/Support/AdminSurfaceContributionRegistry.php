@@ -25,6 +25,13 @@ final class AdminSurfaceContributionRegistry
     /** @var array<string, list<AdminSurfaceContributionData>> */
     private array $orderedContributions = [];
 
+    /**
+     * What each deliberate replace() superseded, by type and key.
+     *
+     * @var array<string, array<string, AdminSurfaceContributionData>>
+     */
+    private array $replacedContributions = [];
+
     private bool $frozen = false;
 
     public function __construct(private readonly ?ExtensionOrderResolver $orderResolver = null) {}
@@ -38,6 +45,13 @@ final class AdminSurfaceContributionRegistry
         $existing = $this->contributions[$contribution->type->value][$contribution->key] ?? null;
         if ($existing instanceof AdminSurfaceContributionData) {
             if ($this->same($existing, $contribution)) {
+                return;
+            }
+
+            // Installing an extension mid-request registers the admin surface again. A contribution that a supported
+            // replace() already superseded comes back unchanged; the replacement stays and the request carries on.
+            $superseded = $this->replacedContributions[$contribution->type->value][$contribution->key] ?? null;
+            if ($superseded instanceof AdminSurfaceContributionData && $this->same($superseded, $contribution)) {
                 return;
             }
 
@@ -64,6 +78,7 @@ final class AdminSurfaceContributionRegistry
             throw new LogicException(sprintf('Cannot replace missing extension key [%s].', $contribution->key));
         }
 
+        $this->replacedContributions[$contribution->type->value][$contribution->key] ??= $this->contributions[$contribution->type->value][$contribution->key];
         $this->contributions[$contribution->type->value][$contribution->key] = $contribution;
         unset($this->orderedContributions[$contribution->type->value]);
     }
@@ -159,6 +174,7 @@ final class AdminSurfaceContributionRegistry
     {
         $this->contributions = [];
         $this->orderedContributions = [];
+        $this->replacedContributions = [];
         $this->frozen = false;
     }
 
