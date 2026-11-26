@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # SQLite is what the skeleton installs; MariaDB 10.11 is what production runs. The
+        # SQLite is what the skeleton installs; MariaDB 11.8 is what production runs. The
         # script starts its own MariaDB container, so the job needs no service block.
         # The third leg reaches MariaDB through Laravel's mariadb driver, whose native UUID
         # columns behave differently from the mysql driver's text.
