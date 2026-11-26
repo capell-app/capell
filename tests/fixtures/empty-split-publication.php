@@ -85,7 +85,10 @@ try {
         }
     };
     putenv('GH_TOKEN=local-fixture-token');
-    new ReleaseEngine($root . '/source', $runner)->publish($plan, $root . '/plan.json');
+    $engine = new ReleaseEngine($root . '/source', $runner);
+    $engine->publish($plan, $root . '/plan.json');
+    $engine->publishAggregateTag($plan);
+    $engine->publishAggregateTag($plan);
     $remote = static fn (array $args): string => $run(['git', '--git-dir=' . $root . '/split.git', ...$args]);
     $split = $remote(['rev-parse', 'refs/heads/main']);
     $actualTree = $remote(['rev-parse', 'refs/heads/main^{tree}']);
@@ -95,6 +98,10 @@ try {
 
     $commits = array_values(array_filter($runner->commands, static fn (array $command): bool => in_array('commit-tree', $command, true)));
     throw_if(count($commits) !== 1 || in_array('-p', $commits[0], true) || $run($commits[0], $root . '/source') !== $split, RuntimeException::class, 'Root split must use one deterministic parentless commit-tree command');
+
+    $aggregate = $run(['git', '--git-dir=' . $root . '/origin.git', 'rev-parse', '--verify', 'refs/tags/v1.0.0^{commit}']);
+    throw_if($aggregate !== $sha, RuntimeException::class, 'Publication must tag the monorepo root v1.0.0 at the planned source commit');
+    $engine->verifyAggregateTag($plan);
 
     $state = json_decode((string) file_get_contents($root . '/plan.json.state.json'), true, 512, JSON_THROW_ON_ERROR);
     throw_if($state['packages']['capell-app/core']['state'] !== 'published', RuntimeException::class, 'Publication did not complete');

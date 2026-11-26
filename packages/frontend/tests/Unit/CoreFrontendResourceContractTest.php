@@ -32,7 +32,7 @@ foreach ($psr4 as $prefix => $paths) {
 $loader->addPsr4('Capell\\Core\\', $argv[1] . '/packages/core/src');
 $loader->register();
 foreach (require $argv[1] . '/vendor/composer/autoload_files.php' as $file) {
-    if (!str_contains($file, '/packages/')) {
+    if (!str_starts_with($file, $argv[1] . '/packages/')) {
         require_once $file;
     }
 }

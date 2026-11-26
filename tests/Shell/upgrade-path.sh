@@ -89,6 +89,8 @@ check 'a droppable populated column is found for the seeded fault' 'pages summar
 
 bash "$script" --database oracle >"$scratch/engine.out" 2>&1
 check 'unknown database engine exits 2' 2 $?
+bash "$script" --driver mariadb >"$scratch/driver.out" 2>&1
+check 'a Laravel driver without a MariaDB server exits 2' 2 $?
 bash "$script" --inject nonsense >"$scratch/inject.out" 2>&1
 check 'unknown fault exits 2' 2 $?
 bash "$script" --from latest >"$scratch/from.out" 2>&1
