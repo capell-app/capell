@@ -129,6 +129,7 @@ final class MarketplaceConnectionFormModel
             Log::warning('capell-marketplace: marketplace account connection failed', [
                 'exception_class' => $throwable::class,
                 'failure' => $failure->value,
+                'reason' => MarketplaceConnectionStartException::diagnostic($throwable),
             ]);
 
             $actions = [

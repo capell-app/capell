@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Core\Support\TableName;
 use Capell\Marketplace\Enums\MarketplaceAccountConnectionSessionStatus;
 use Capell\Marketplace\Enums\MarketplaceCatalogueFailure;
 use Capell\Marketplace\Enums\MarketplaceConnectionFailure;
@@ -17,6 +18,8 @@ use Filament\Actions\Action;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 use Livewire\Livewire;
 use PHPUnit\Framework\Assert;
@@ -83,15 +86,23 @@ it('renders safe catalogue failures and a deliberate read retry', function (stri
     'malformed response' => ['malformed', 'verification'],
 ]);
 
-it('keeps failed account connection starts local and gives safe recovery', function (string $failure, string $reason): void {
+it('keeps failed account connection starts local and gives an actionable, safe reason', function (string $failure, string $reason, string $logged): void {
     $sentinel = 'secret-token=connection-SENTINEL';
     if ($failure === 'configuration') {
         config(['app.url' => 'invalid-site-url']);
     }
 
-    Http::fake(['*' => $failure === 'approval'
-        ? Http::response(['data' => ['connection_session_id' => 'mcs_bad', 'approval_url' => 'https://evil.test/' . $sentinel]])
-        : Http::response(['message' => $sentinel], 503)]);
+    if ($failure === 'storage') {
+        Schema::drop(TableName::resolve('marketplace_client_connection_sessions'));
+    }
+
+    Http::fake(fn () => match ($failure) {
+        'approval' => Http::response(['data' => ['connection_session_id' => 'mcs_bad', 'approval_url' => 'https://evil.test/' . $sentinel]]),
+        'unreachable' => throw new ConnectionException('cURL error 6: Could not resolve host: marketplace.test'),
+        'rejected' => Http::response(['message' => $sentinel], 422),
+        default => Http::response(['message' => $sentinel], 503),
+    });
+    $log = Log::spy();
 
     $livewire = Mockery::mock(Component::class);
     $livewire->shouldNotReceive('redirect');
@@ -114,15 +125,26 @@ it('keeps failed account connection starts local and gives safe recovery', funct
     expect($reviewAction->getUrl())->toBe(MarketplacePage::getUrl())
         ->and($loginAction->getUrl())->toBe('https://marketplace.test/login');
 
+    $log->shouldHaveReceived('warning')->once()->withArgs(fn (string $message, array $context): bool => $context['failure'] === $reason
+        && str_contains($context['reason'], $logged)
+        && ! str_contains(json_encode($context, JSON_THROW_ON_ERROR), $sentinel));
+
+    if ($failure === 'storage') {
+        return;
+    }
+
     if ($failure === 'configuration') {
         expect(MarketplaceAccountConnectionSession::query()->count())->toBe(0);
     } else {
         expect(MarketplaceAccountConnectionSession::query()->sole()->status)->toBe(MarketplaceAccountConnectionSessionStatus::Failed);
     }
 })->with([
-    'unavailable service' => ['service', 'service'],
-    'invalid installation URL' => ['configuration', 'configuration'],
-    'untrusted approval URL' => ['approval', 'approval'],
+    'unavailable service' => ['service', 'service', 'HTTP 503'],
+    'unreachable service' => ['unreachable', 'unreachable', 'Could not resolve host'],
+    'rejected by Marketplace' => ['rejected', 'rejected', 'HTTP 422'],
+    'local storage unusable' => ['storage', 'storage', 'marketplace_client_connection_sessions'],
+    'invalid installation URL' => ['configuration', 'configuration', 'APP_URL'],
+    'untrusted approval URL' => ['approval', 'approval', 'invalid approval URL'],
 ]);
 
 it('sends safe local failures without an unavailable or unsafe account login destination', function (string $webUrl): void {

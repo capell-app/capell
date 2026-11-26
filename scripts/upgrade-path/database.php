@@ -153,7 +153,7 @@ function quoteIdentifier(PDO $pdo, string $identifier): string
 /**
  * @param  array<string, array{rows: int, columns: array<string, array{values: int, droppable: bool}>}>  $before
  * @param  array<string, array{rows: int, columns: array<string, array{values: int, droppable: bool}>}>  $after
- * @param  array{tables: array<string, string>, columns: array<string, string>}  $allowed
+ * @param  array{tables: array<string, string>, columns: array<string, string>, renamed_tables: array<string, string>}  $allowed
  * @return list<string>
  */
 function losses(array $before, array $after, array $allowed): array
@@ -165,14 +165,22 @@ function losses(array $before, array $after, array $allowed): array
             continue;
         }
 
-        if (! array_key_exists($table, $after)) {
-            $losses[] = sprintf('table %s has gone (%d rows before the upgrade)', $table, $tableBefore['rows']);
+        // A declared rename keeps the table's data under its new name, so its rows and values are checked there.
+        $target = $table;
+        if (! array_key_exists($table, $after) && array_key_exists($table, $allowed['renamed_tables'])) {
+            $target = $allowed['renamed_tables'][$table];
+        }
+
+        if (! array_key_exists($target, $after)) {
+            $losses[] = $target === $table
+                ? sprintf('table %s has gone (%d rows before the upgrade)', $table, $tableBefore['rows'])
+                : sprintf('table %s was declared renamed to %s, which does not exist (%d rows before the upgrade)', $table, $target, $tableBefore['rows']);
 
             continue;
         }
 
-        if ($after[$table]['rows'] < $tableBefore['rows']) {
-            $losses[] = sprintf('table %s lost rows: %d before, %d after', $table, $tableBefore['rows'], $after[$table]['rows']);
+        if ($after[$target]['rows'] < $tableBefore['rows']) {
+            $losses[] = sprintf('table %s lost rows: %d before, %d after', $target, $tableBefore['rows'], $after[$target]['rows']);
         }
 
         foreach ($tableBefore['columns'] as $column => $columnBefore) {
@@ -180,16 +188,16 @@ function losses(array $before, array $after, array $allowed): array
                 continue;
             }
 
-            if (! array_key_exists($column, $after[$table]['columns'])) {
-                $losses[] = sprintf('column %s.%s has gone (%d values before the upgrade)', $table, $column, $columnBefore['values']);
+            if (! array_key_exists($column, $after[$target]['columns'])) {
+                $losses[] = sprintf('column %s.%s has gone (%d values before the upgrade)', $target, $column, $columnBefore['values']);
 
                 continue;
             }
 
-            $valuesAfter = $after[$table]['columns'][$column]['values'];
+            $valuesAfter = $after[$target]['columns'][$column]['values'];
 
             if ($valuesAfter < $columnBefore['values']) {
-                $losses[] = sprintf('column %s.%s lost values: %d before, %d after', $table, $column, $columnBefore['values'], $valuesAfter);
+                $losses[] = sprintf('column %s.%s lost values: %d before, %d after', $target, $column, $columnBefore['values'], $valuesAfter);
             }
         }
     }
@@ -248,15 +256,22 @@ function readJson(string $path): array
 }
 
 /**
- * @return array{tables: array<string, string>, columns: array<string, string>}
+ * @return array{tables: array<string, string>, columns: array<string, string>, renamed_tables: array<string, string>}
  */
 function readAllowedChanges(string $path): array
 {
     $allowed = readJson($path);
+    $renamed = [];
+    foreach (is_array($allowed['renamed_tables'] ?? null) ? $allowed['renamed_tables'] : [] as $from => $rename) {
+        if (is_string($from) && is_array($rename) && is_string($rename['to'] ?? null)) {
+            $renamed[$from] = $rename['to'];
+        }
+    }
 
     return [
         'tables' => is_array($allowed['tables'] ?? null) ? $allowed['tables'] : [],
         'columns' => is_array($allowed['columns'] ?? null) ? $allowed['columns'] : [],
+        'renamed_tables' => $renamed,
     ];
 }
 
