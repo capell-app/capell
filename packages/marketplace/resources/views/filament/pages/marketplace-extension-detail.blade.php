@@ -357,6 +357,29 @@
                 </div>
             @endif
 
+            @if ($this->canFinishInstall())
+                <div
+                    data-capell-marketplace-finish-install
+                    class="space-y-3 rounded-lg border border-primary-300 bg-primary-50 p-4 text-sm dark:border-primary-500/40 dark:bg-primary-500/10"
+                >
+                    <p class="font-semibold text-gray-950 dark:text-white">
+                        {{ __('capell-marketplace::marketplace.detail.finish_install_heading', ['name' => $detail->name]) }}
+                    </p>
+
+                    <p class="text-gray-700 dark:text-gray-200">
+                        {{ __('capell-marketplace::marketplace.detail.finish_install_body') }}
+                    </p>
+
+                    <x-filament::button
+                        wire:click="finishInstall"
+                        wire:loading.attr="disabled"
+                        wire:target="finishInstall"
+                    >
+                        {{ __('capell-marketplace::marketplace.detail.finish_install_button') }}
+                    </x-filament::button>
+                </div>
+            @endif
+
             @if ($this->requiresManualInstallInstructions())
                 {{-- This host cannot install for the operator, so the commands
                      they must run are the primary action rather than an
@@ -422,6 +445,14 @@
                                 >
                                     {{ __('capell-marketplace::marketplace.detail.manual_install_command_heading') }}
                                 </h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-300">
+                                    {{ __('capell-marketplace::marketplace.detail.manual_finish_install_body') }}
+                                </p>
+
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                    {{ __('capell-marketplace::marketplace.detail.manual_finish_install_cli') }}
+                                </p>
+
                                 <pre
                                     class="overflow-x-auto rounded-md bg-gray-950 p-3 text-sm text-white"
                                 ><code>{{ $manualInstallCommands['install'] }}</code></pre>

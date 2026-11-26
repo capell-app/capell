@@ -6,8 +6,11 @@ namespace Capell\Marketplace\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Actions\Extensions\PrepareInstalledExtensionReloadAction;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\AssertNoActiveMarketplaceOperationAction;
@@ -46,6 +49,7 @@ use InvalidArgumentException;
 use Override;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
 final class MarketplaceExtensionDetailPage extends Page
 {
@@ -554,6 +558,70 @@ final class MarketplaceExtensionDetailPage extends Page
     {
         return $this->manualInstallCommands() !== []
             && ! $this->environmentReadiness()->canInstallAutomatically();
+    }
+
+    /**
+     * The extension's code is on this server, from a Composer run the operator did by hand, but Capell has not
+     * installed it yet. That last step needs no Composer, so it is finished here rather than with another command.
+     */
+    public function packageAwaitingInstall(): ?PackageData
+    {
+        $composerName = $this->detail()?->composerName;
+
+        if (! is_string($composerName) || $composerName === '') {
+            return null;
+        }
+
+        foreach (ExtensionListingData::localPackageComposerNameCandidates($composerName) as $candidateComposerName) {
+            if (CapellCore::hasPackage($candidateComposerName)) {
+                $package = CapellCore::getPackage($candidateComposerName);
+
+                return $package->isInstalled() ? null : $package;
+            }
+        }
+
+        return null;
+    }
+
+    public function canFinishInstall(): bool
+    {
+        return ExtensionsPage::canManageExtensions() && $this->packageAwaitingInstall() instanceof PackageData;
+    }
+
+    public function finishInstall(): void
+    {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+        abort_unless(self::canAccess(), 403);
+
+        $package = $this->packageAwaitingInstall();
+
+        if (! $package instanceof PackageData) {
+            return;
+        }
+
+        $name = $this->detail()?->name ?? $package->name;
+
+        try {
+            InstallPackageAction::run($package);
+            PrepareInstalledExtensionReloadAction::run();
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            Notification::make('marketplace-finish-install-failed')
+                ->danger()
+                ->title((string) __('capell-marketplace::marketplace.detail.finish_install_failed', ['name' => $name]))
+                ->body($throwable->getMessage())
+                ->send();
+
+            return;
+        }
+
+        Notification::make('marketplace-finish-install-done')
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.detail.finish_install_done', ['name' => $name]))
+            ->send();
+
+        $this->redirect(self::getUrl(['slug' => $this->extensionSlug]), navigate: false);
     }
 
     public function showManualInstallInstructions(): void
