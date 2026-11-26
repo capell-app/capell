@@ -194,7 +194,12 @@ final class MarketplaceExtensionDetailPage extends Page
 
     public function canDownload(): bool
     {
-        return (bool) $this->detail()?->licence?->canDownload;
+        $licence = $this->detail()?->licence;
+
+        // Without a licence decision the extension needs no licence, so it downloads when it installs.
+        return $licence instanceof ExtensionLicenceDecisionData
+            ? $licence->canDownload
+            : $this->canInstall();
     }
 
     public function canInstall(): bool

@@ -363,9 +363,10 @@ it('decides whether an extension can be installed when the Marketplace sends no 
     $page = Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'notes'])->assertSuccessful();
 
     expect($page->instance()->canInstall())->toBe($expectedCanInstall)
-        ->and($page->instance()->installDecisionLabel())->toBe((string) __($expectedCanInstall
-            ? 'capell-marketplace::marketplace.detail.install_decision_yes'
-            : 'capell-marketplace::marketplace.detail.install_decision_no'));
+        ->and($page->instance()->canDownload())->toBe($expectedCanInstall)
+        ->and($page->instance()->installDecisionLabel())->toBe($expectedCanInstall
+            ? (string) __('capell-marketplace::marketplace.detail.install_decision_yes')
+            : (string) __('capell-marketplace::marketplace.detail.install_decision_no'));
 })->with([
     'free extension' => [false, true],
     'paid extension without a licence' => [true, false],
