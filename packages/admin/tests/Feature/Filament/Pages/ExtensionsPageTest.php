@@ -2262,5 +2262,6 @@ it('explains each extension stat count and links the installed tile to its filte
         ->assertSee(trans_choice('capell-admin::generic.extension_stats.needs_attention', 0))
         ->assertSee(trans_choice('capell-admin::generic.extension_stats.updates', 0))
         ->assertSee(trans_choice('capell-admin::generic.extension_stats.blocked', 0))
-        ->assertSeeHtml(e(ExtensionsPage::getUrl(['installed-extensionsFilters' => ['installed_status' => ['value' => '1']]])));
+        ->assertSeeHtml(e(ExtensionsPage::getUrl(['installed-extensionsFilters' => ['installed_status' => ['value' => '1']]])))
+        ->assertSeeHtml(e(ExtensionsPage::getUrl(['installed-extensionsFilters' => ['installed_status' => ['value' => '0']]])));
 });

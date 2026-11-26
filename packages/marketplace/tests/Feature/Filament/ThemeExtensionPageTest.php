@@ -251,8 +251,10 @@ it('shows a global administrator which sites use the theme and that all sites ch
 
 it('tells a site-scoped administrator that applying to all sites keeps the default theme', function (): void {
     registerThemeExtensionManifest('scoped-copy', 'Scoped Copy');
-    $assigned = Site::factory()->create();
-    Site::factory()->create();
+    $defaultTheme = Theme::factory()->create(['default' => true]);
+    $otherTheme = Theme::factory()->create(['default' => false]);
+    $assigned = Site::factory()->theme($defaultTheme)->create();
+    $unmanaged = Site::factory()->theme($otherTheme)->create();
     $actor = User::factory()->create();
     $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
     $actor->givePermissionTo('View:ThemeExtensionPage', ExtensionsPage::MANAGE_PERMISSION);
@@ -264,4 +266,30 @@ it('tells a site-scoped administrator that applying to all sites keeps the defau
         ->assertDontSee('make this the default theme')
         ->call('applyTheme')
         ->assertNotified('Theme applied to your sites');
+
+    $applied = Theme::query()->where('key', 'scoped-copy')->firstOrFail();
+
+    expect($assigned->refresh()->theme_id)->toBe($applied->getKey())
+        ->and($unmanaged->refresh()->theme_id)->toBe($otherTheme->getKey())
+        ->and($defaultTheme->refresh()->default)->toBeTrue()
+        ->and($otherTheme->refresh()->default)->toBeFalse()
+        ->and($applied->default)->toBeFalse();
+});
+
+it('warns a site-scoped administrator with no sites instead of failing when they apply to all sites', function (): void {
+    registerThemeExtensionManifest('no-sites', 'No Sites');
+    Site::factory()->create();
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect();
+    $actor->givePermissionTo('View:ThemeExtensionPage', ExtensionsPage::MANAGE_PERMISSION);
+
+    test()->actingAs($actor);
+
+    Livewire::test(ThemeExtensionPage::class, ['themeKey' => 'no-sites'])
+        ->call('applyTheme')
+        ->assertNotified(__('capell-marketplace::marketplace.theme_extension.no_sites_to_change'))
+        ->assertSee('You have no sites to change.')
+        ->assertSeeHtml('data-capell-theme-apply-disabled');
+
+    expect(Theme::query()->where('key', 'no-sites')->exists())->toBeFalse();
 });

@@ -7,7 +7,9 @@
         $usingCount = $sites->filter(fn ($site): bool => $site->theme?->key === $this->themeKey)->count();
         $orderedSites = $sites->sortByDesc(fn ($site): bool => $site->theme?->key === $this->themeKey)->values();
         $panel = 'rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10';
-        $choice = 'flex cursor-pointer gap-3 rounded-lg p-4 ring-1 ring-gray-950/10 transition has-[:checked]:bg-primary-50 has-[:checked]:ring-2 has-[:checked]:ring-primary-600 dark:ring-white/10 dark:has-[:checked]:bg-primary-500/10 dark:has-[:checked]:ring-primary-500';
+        $noSitesToChange = $this->hasNoSitesToChange();
+        $choiceFrame = 'flex gap-3 rounded-lg p-4 ring-1 ring-gray-950/10 transition has-[:checked]:bg-primary-50 has-[:checked]:ring-2 has-[:checked]:ring-primary-600 dark:ring-white/10 dark:has-[:checked]:bg-primary-500/10 dark:has-[:checked]:ring-primary-500';
+        $choice = 'cursor-pointer ' . $choiceFrame;
         $radio = 'mt-0.5 size-4 shrink-0 accent-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:accent-primary-500';
     @endphp
 
@@ -67,7 +69,7 @@
                 </label>
 
                 <div
-                    class="{{ $choice }} flex-col"
+                    class="{{ $choiceFrame }} flex-col"
                     data-capell-theme-scope="site"
                 >
                     <label class="flex cursor-pointer gap-3">
@@ -148,9 +150,19 @@
                     {{ __('capell-marketplace::marketplace.theme_extension.preview_button', ['theme' => $themeName]) }}
                 </x-filament::button>
 
+                @if ($noSitesToChange)
+                    <p
+                        class="text-sm text-gray-600 sm:me-auto sm:self-center dark:text-gray-300"
+                        data-capell-theme-apply-disabled
+                    >
+                        {{ __('capell-marketplace::marketplace.theme_extension.apply_disabled_no_sites') }}
+                    </p>
+                @endif
+
                 <x-filament::button
                     icon="heroicon-o-check-circle"
                     wire:click="applyTheme"
+                    :disabled="$noSitesToChange"
                 >
                     {{ __('capell-marketplace::marketplace.theme_extension.apply_button', ['theme' => $themeName]) }}
                 </x-filament::button>

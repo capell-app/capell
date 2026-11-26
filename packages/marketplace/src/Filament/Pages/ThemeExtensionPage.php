@@ -91,8 +91,27 @@ final class ThemeExtensionPage extends Page
         return SiteAccess::current()->isGlobal();
     }
 
+    /**
+     * A site-scoped administrator without any sites has nothing to apply the
+     * theme to, and may not change the default theme either.
+     */
+    public function hasNoSitesToChange(): bool
+    {
+        return ! $this->appliesDefaultTheme() && $this->sites()->isEmpty();
+    }
+
     public function applyTheme(): void
     {
+        if ($this->hasNoSitesToChange()) {
+            Notification::make()
+                ->title(__('capell-marketplace::marketplace.theme_extension.no_sites_to_change'))
+                ->body(__('capell-marketplace::marketplace.theme_extension.no_sites_to_change_body'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         $siteId = $this->selectedSiteIdForApply();
         $siteName = $siteId === null
             ? null
