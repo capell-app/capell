@@ -512,12 +512,27 @@ function installCommandForOptions(array $options, bool $interactive = false): In
     return $command;
 }
 
-it('asks for the first site URL and preserves its port and path', function (): void {
+it('offers the php artisan serve address as the default first site URL when APP_URL is empty', function (): void {
+    app()->detectEnvironment(fn (): string => 'local');
     config(['app.url' => '']);
+    $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
+    $previousFallback = $fallback->getValue();
+    Prompt::fake([Key::ENTER]);
+    $fallback->setValue(null, false);
+    try {
+        expect(callInstallCommandMethod(installCommandForOptions([], true), 'resolveSiteUrl'))
+            ->toBe('http://localhost:8000');
+    } finally {
+        $fallback->setValue(null, $previousFallback);
+    }
+});
+
+it('asks for the first site URL and preserves its port and path', function (): void {
+    config(['app.url' => 'https://placeholder.test']);
     // fallbackWhen(false) cannot undo Laravel's sticky fallback flag.
     $fallback = new ReflectionProperty(Prompt::class, 'shouldFallback');
     $previousFallback = $fallback->getValue();
-    Prompt::fake(['https://example.test:8443/blog', Key::ENTER]);
+    Prompt::fake([...array_fill(0, 30, Key::BACKSPACE), 'https://example.test:8443/blog', Key::ENTER]);
     $fallback->setValue(null, false);
     try {
         expect(callInstallCommandMethod(installCommandForOptions([], true), 'resolveSiteUrl'))
