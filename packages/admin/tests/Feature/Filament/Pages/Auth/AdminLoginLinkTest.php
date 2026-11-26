@@ -364,3 +364,13 @@ it('hides the login-page request when email requests are turned off', function (
     $this->get(adminLoginUrl())->assertDontSee(__('capell-admin::login_links.login_page.link'));
     $this->get(route(Filament::getPanel('admin')->generateRouteName(RequestLoginLink::ROUTE_NAME)))->assertNotFound();
 });
+
+it('gives the same answer when sending the email fails', function (): void {
+    loginLinkAdmin();
+    Notification::shouldReceive('send')->andThrow(new RuntimeException('Mail transport is down'));
+
+    Livewire::test(RequestLoginLink::class)
+        ->fillForm(['email' => 'operator@example.test'])
+        ->call('request')
+        ->assertNotified(__('capell-admin::login_links.request.sent_title'));
+});

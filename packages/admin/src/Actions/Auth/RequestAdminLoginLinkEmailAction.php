@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Timebox;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
 
 /**
  * Emails a sign-in link when someone asks for one from the login page.
@@ -74,6 +75,11 @@ final class RequestAdminLoginLinkEmailAction
             return;
         }
 
-        $user->notify(new AdminLoginLinkNotification(IssueAdminLoginLinkAction::run($user, $panel)));
+        try {
+            $user->notify(new AdminLoginLinkNotification(IssueAdminLoginLinkAction::run($user, $panel)));
+        } catch (Throwable $throwable) {
+            // A failure only an existing account could cause must not change the answer the visitor sees.
+            report($throwable);
+        }
     }
 }
