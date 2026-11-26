@@ -13,6 +13,7 @@ use Workbench\App\Http\Middleware\RequireScreenshotAdmin;
 use Workbench\App\Support\ActionScreenshotFixture;
 use Workbench\App\Support\CustomPageFieldsFixture;
 use Workbench\App\Support\InvitationScreenshotFixture;
+use Workbench\App\Support\LoginLinkScreenshotFixture;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\PageBuildingBlocksFixture;
 use Workbench\App\Support\PageHistoryFixture;
@@ -87,4 +88,8 @@ Route::get('/screenshot-fixtures/custom-page-fields/{scenario}', static fn (stri
 
 // Guests only: the accept page redirects a signed-in admin, so this fixture is captured through the anonymous frontend surface.
 Route::get('/screenshot-fixtures/actions/accept-invitation', static fn (): RedirectResponse => redirect()->to(InvitationScreenshotFixture::acceptUrl()))
+    ->middleware('web');
+
+// Guests only, like the invitation page. The link it opens was never issued, so it shows the used-link state and signs nobody in.
+Route::get('/screenshot-fixtures/actions/used-sign-in-link', static fn (): RedirectResponse => redirect()->to(LoginLinkScreenshotFixture::usedLinkUrl()))
     ->middleware('web');

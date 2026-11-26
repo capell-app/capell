@@ -33,6 +33,8 @@ Operators and automated test harnesses can print a link from the command line in
 php artisan capell:admin-login-link editor@example.com
 ```
 
+Requests from the login page are rate limited. Each address receives at most `capell-admin.login_links.max_emails_per_address` links (default 3), and each IP address may make `capell-admin.login_links.max_requests_per_ip` requests (default 10), in every `capell-admin.login_links.request_window_minutes` minutes (default 15). Requests over the per-address limit are dropped without a different answer, so the limit does not reveal who has an account.
+
 Treat the printed link like a password. Set `CAPELL_ADMIN_LOGIN_LINK_EMAIL_REQUESTS=false` to remove the login-page option, or `CAPELL_ADMIN_LOGIN_LINKS_ENABLED=false` to turn links off entirely, including the command.
 
 ## Add a user
