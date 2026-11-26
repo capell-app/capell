@@ -29,7 +29,6 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Url;
 use Override;
@@ -95,9 +94,9 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
     }
 
     #[Override]
-    public function getHeading(): string|Htmlable|null
+    public function getSubheading(): string
     {
-        return null;
+        return (string) __('capell-marketplace::marketplace.operations.page_description');
     }
 
     public function mount(): void
@@ -417,16 +416,6 @@ final class MarketplacePackageOperationsPage extends Page implements HasTable
             ->success()
             ->title((string) __('capell-marketplace::marketplace.operations.diagnostics_copied'))
             ->send();
-    }
-
-    public function marketplaceUrl(): string
-    {
-        return MarketplacePage::getUrl();
-    }
-
-    public function extensionsUrl(): string
-    {
-        return ExtensionsPage::getUrl();
     }
 
     public function canRetry(MarketplaceInstallAttempt $attempt): bool

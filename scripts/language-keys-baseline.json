@@ -2,7 +2,7 @@
     "schemaVersion": 1,
     "auditScript": "scripts/audit-language-keys.sh",
     "root": "packages",
-    "unusedCount": 738,
+    "unusedCount": 737,
     "missingCount": 20,
     "unused": [
         "capell-admin::activity.changed_fields",
@@ -694,7 +694,6 @@
         "capell-marketplace::marketplace.card.update_available_tooltip",
         "capell-marketplace::marketplace.card.verified_publisher",
         "capell-marketplace::marketplace.card.verified_publisher_tooltip",
-        "capell-marketplace::marketplace.card.version_label",
         "capell-marketplace::marketplace.card.version_release_label",
         "capell-marketplace::marketplace.card.version_release_tooltip",
         "capell-marketplace::marketplace.card.version_tooltip",
