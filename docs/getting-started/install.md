@@ -115,7 +115,7 @@ The default interactive flow asks six questions, each with a default:
 
 1. **What are you building?** Choose the closest site type. It sets the packages, the starter theme and the free extensions that suit it (Marketing site is the default).
 2. **What is the site called?** Defaults to `APP_NAME`.
-3. **What is the site's address?** Defaults to `APP_URL`.
+3. **What is the site's address?** Defaults to `APP_URL`, or to `http://localhost:8000` (the address `php artisan serve` uses) when `APP_URL` is empty, as it is in the starter.
 4. **Who is the first administrator?** Name, email and password, or an existing user.
 5. **Start with sample content so you can see how pages work?** Defaults to yes. You can replace or delete the sample pages in the admin. An installation that already has sites does not ask this question and adds no sample content.
 6. **Install Capell with these settings?** Nothing is installed until you confirm.
@@ -177,9 +177,9 @@ frontend-only retry command, without repeating package or demo setup. Where Fron
 is unavailable, the existing npm build fallback retains its npm recovery command.
 
 Interactive installation asks for the first site's full URL when `--url` is omitted,
-using `APP_URL` as the default. Include any port and mount path, for example
+using `APP_URL` as the default, or `http://localhost:8000` when `APP_URL` is empty. Include any port and mount path, for example
 `https://example.test:8443/blog`; site creation stores the scheme, hostname, port and
-path separately. Plan previews and unattended installs use `APP_URL` without a prompt.
+path separately. Plan previews and unattended installs use that same default without a prompt.
 
 Extension choices show explicit catalogue states: **Free**, **Capell licence required**,
 **Licence status unavailable**, or **Currently unavailable**. **Already downloaded**

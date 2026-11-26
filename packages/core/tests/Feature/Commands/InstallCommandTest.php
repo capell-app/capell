@@ -2644,6 +2644,23 @@ it('does not ask for cache selection after a fresh seeded install', function ():
         ->and($fake->capturedInput->cachesToClear)->toBe([]);
 });
 
+it('falls back to the php artisan serve address when APP_URL is empty', function (): void {
+    setupInstallTest(['capell-app/frontend']);
+    markInstallTestPackageAsFrontend('capell-app/frontend');
+    config()->set('app.url', '');
+    $fake = bindFakeRunInstallAction();
+
+    artisanCommand('capell:install', [
+        '--packages' => 'capell-app/frontend',
+        '--plan' => true,
+        '--no-interaction' => true,
+    ])
+        ->expectsOutputToContain('http://localhost:8000')
+        ->assertSuccessful();
+
+    expect($fake->callCount)->toBe(0);
+});
+
 it('asks for package selection during interactive fresh demo installs', function (): void {
     setupInstallTest([
         'capell-app/core',

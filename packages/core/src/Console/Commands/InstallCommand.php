@@ -2142,7 +2142,10 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private function defaultSiteUrl(): string
     {
-        return $this->stringConfigValue(config('app.url'));
+        $appUrl = $this->stringConfigValue(config('app.url'));
+
+        // The skeleton ships with an empty APP_URL, so offer the address `php artisan serve` uses.
+        return $appUrl === '' ? 'http://localhost:8000' : $appUrl;
     }
 
     private function recordManualInstallChange(string $message): void
