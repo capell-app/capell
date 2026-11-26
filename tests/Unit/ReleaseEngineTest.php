@@ -1392,6 +1392,29 @@ it('refuses to verify a plan whose split repository differs from the declared in
     expect($runner->commands)->toBeEmpty();
 });
 
+it('refuses to move an aggregate tag that already points at another commit', function (): void {
+    $sha = str_repeat('a', 40);
+    $tree = str_repeat('b', 40);
+    $runner = new class implements CommandRunner
+    {
+        /** @var list<list<string>> */
+        public array $commands = [];
+
+        public function run(array $command, ?string $workingDirectory = null): array
+        {
+            $this->commands[] = $command;
+
+            return ['output' => in_array('ls-remote', $command, true) ? str_repeat('c', 40) . "\trefs/tags/v1.0.0" : '', 'exitCode' => 0];
+        }
+    };
+    $plan = releaseEnginePlan($sha, $tree);
+    $engine = new ReleaseEngine(releaseEngineRootForPlan($plan), $runner);
+
+    expect(fn (): ?string => $engine->publishAggregateTag($plan))
+        ->toThrow(ReleaseException::class, 'Existing aggregate tag v1.0.0 does not match the planned source commit.')
+        ->and(array_filter($runner->commands, fn (array $command): bool => in_array('push', $command, true)))->toBeEmpty();
+});
+
 it('publishes an empty split remote without transferring obsolete package history', function (): void {
     $result = (new ProcessCommandRunner)->run([
         PHP_BINARY,

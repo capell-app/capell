@@ -110,11 +110,13 @@ try {
     $engine = new ReleaseEngine($root, $command === 'publish' ? new SourceReleaseNotesRunner($runner, $root, $plan) : $runner);
     if ($command === 'publish') {
         $engine->publish($plan, $path);
-        echo "Publication completed.\n";
+        $aggregateTag = $engine->publishAggregateTag($plan);
+        echo 'Publication completed.' . ($aggregateTag === null ? '' : ' Aggregate tag ' . $aggregateTag . ' pushed.') . "\n";
         exit(0);
     }
     if ($command === 'verify') {
         $engine->verify($plan, $path);
+        $engine->verifyAggregateTag($plan);
         echo "Remote release verified.\n";
         exit(0);
     }
