@@ -20,6 +20,8 @@ The person opens the link from their email and chooses their own password.
 
 People can choose **Email me a sign-in link instead** on the login page. Capell emails a link that signs them in once, without their password. The page gives the same answer whether or not the address has an account, so nobody can use it to find out who has one.
 
+![The page for asking for a sign-in link](../images/generated/admin/action-request-sign-in-link.png)
+
 Each link:
 
 - works once, and only after the person presses **Sign in**, so mail scanners that open links cannot use it up
@@ -27,15 +29,17 @@ Each link:
 - stops working when a newer link is sent or the person's password changes
 - signs in only people the panel admits. Anyone with two-factor authentication turned on must sign in with their password and code instead.
 
+![The page a used or expired sign-in link opens](../images/generated/admin/action-used-sign-in-link.png)
+
 Operators and automated test harnesses can print a link from the command line instead of emailing one:
 
 ```bash
 php artisan capell:admin-login-link editor@example.com
 ```
 
-Requests from the login page are rate limited. Each address receives at most `capell-admin.login_links.max_emails_per_address` links (default 3), and each IP address may make `capell-admin.login_links.max_requests_per_ip` requests (default 10), in every `capell-admin.login_links.request_window_minutes` minutes (default 15). Requests over the per-address limit are dropped without a different answer, so the limit does not reveal who has an account.
-
 Treat the printed link like a password. Set `CAPELL_ADMIN_LOGIN_LINK_EMAIL_REQUESTS=false` to remove the login-page option, or `CAPELL_ADMIN_LOGIN_LINKS_ENABLED=false` to turn links off entirely, including the command.
+
+Requests from the login page are rate limited. Each address receives at most `capell-admin.login_links.max_emails_per_address` links (default 3), and each IP address may make `capell-admin.login_links.max_requests_per_ip` requests (default 10), in every `capell-admin.login_links.request_window_minutes` minutes (default 15). Requests over the per-address limit are dropped without a different answer, so the limit does not reveal who has an account.
 
 ## Add a user
 
