@@ -131,6 +131,8 @@ return [
         'access_ends' => 'Access ends :date',
         'empty' => 'No marketplace purchases were returned by the latest account heartbeat.',
         'installed_empty' => 'No paid marketplace extensions are installed on this site.',
+        'account_unavailable' => 'Purchases appear here once Capell has received them from your account. Connect the account, or run a heartbeat if it is already connected.',
+        'account_panel_heading' => 'Renewals and support',
         'renew' => 'Manage renewals',
         'support' => 'Get support',
         'priority_support' => 'Priority support is available for :price per request.',
