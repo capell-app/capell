@@ -11,6 +11,7 @@ use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
 use Capell\Admin\Enums\Extensions\ExtensionAttentionReason;
 use Capell\Admin\Support\Extensions\ComposerDriftClassifier;
 use Capell\Admin\Support\Extensions\ComposerDriftMetadata;
+use Capell\Admin\Support\Extensions\ExtensionAssetUrl;
 use Capell\Admin\Support\Extensions\ExtensionNavigationBadgeCounts;
 use Capell\Admin\Support\Extensions\ExtensionOperationsRequestCache;
 use Capell\Core\Actions\ResolveExtensionRuntimeGateAction;
@@ -566,14 +567,7 @@ final class BuildExtensionOperationsSummaryAction
             return $path;
         }
 
-        if (Route::has('capell-admin.extension-asset') && ResolveExtensionAssetPathAction::run($manifest, $path, verifyDecode: false) !== null) {
-            return route('capell-admin.extension-asset', [
-                'package' => $manifest->name,
-                'path' => $path,
-            ]);
-        }
-
-        return $this->marketplaceAssetUrl($path);
+        return ExtensionAssetUrl::for($manifest, $path) ?? $this->marketplaceAssetUrl($path);
     }
 
     private function marketplaceAssetUrl(string $path): ?string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Admin\Http\Controllers\Extensions;
 
 use Capell\Admin\Actions\Extensions\ResolveExtensionAssetPathAction;
+use Capell\Admin\Support\Extensions\ExtensionAssetUrl;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Filament\Facades\Filament;
 use Filament\Models\Contracts\FilamentUser;
@@ -47,9 +48,13 @@ final class ExtensionAssetController
 
         abort_if($absoluteAssetPath === null, 404);
 
+        // A link carrying the file's current version can stay in the browser for good,
+        // so the image is not decoded again on every visit; any other link stays uncached.
+        $versioned = $request->query(ExtensionAssetUrl::VERSION_PARAMETER) === ExtensionAssetUrl::version($absoluteAssetPath);
+
         $response = response()->file($absoluteAssetPath, [
             'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control' => 'private, no-store',
+            'Cache-Control' => $versioned ? 'private, max-age=31536000, immutable' : 'private, no-store',
         ])->setPrivate();
 
         if (strtolower(pathinfo((string) $absoluteAssetPath, PATHINFO_EXTENSION)) === 'svg') {

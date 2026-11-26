@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Admin\Support\Extensions\ExtensionAssetUrl;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Data\ExtensionListingData;
@@ -59,9 +60,10 @@ it('links the local card only when the asset route can serve it', function (stri
             'package' => $manifest->name,
             'path' => 'docs/assets/marketplace/extension-card.jpg',
         ]);
+        $versionedUrl = ExtensionAssetUrl::for($manifest, 'docs/assets/marketplace/extension-card.jpg');
 
         if ($target === 'image') {
-            expect($listing->imageUrl)->toBe($url);
+            expect($listing->imageUrl)->toBe($versionedUrl)->toStartWith($url . '&v=');
             $this->get($listing->imageUrl)->assertOk()->assertHeader('Content-Type', 'image/png')->assertHeader('X-Content-Type-Options', 'nosniff');
         } else {
             expect($listing->imageUrl)->toBe('https://capell.test/fallback.png')
