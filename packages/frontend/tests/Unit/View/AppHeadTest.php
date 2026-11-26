@@ -294,7 +294,8 @@ it('encodes theme font paths so they cannot leave the css url or the style eleme
         ->toContain('fonts/x.woff2%27%29;}%3C/style%3E%3Cscript%3Ealert%281%29%3C/script%3E')
         ->not->toContain('<script>alert(1)')
         ->not->toContain("x.woff2')")
-        ->not->toContain('bad')
+        ->not->toContain('fonts/bad')
+        ->not->toContain('fonts/only')
         ->not->toContain('Broken');
 });
 
