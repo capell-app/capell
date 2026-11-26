@@ -304,7 +304,20 @@ try {
     $model = config('auth.providers.users.model');
     $user = $model::query()->where('email', getenv('ADMIN_EMAIL'))->firstOrFail();
     Auth::guard('web')->login($user);
-    $status = $kernel->handle($request)->getStatusCode();
+    // A new install may send the administrator to its first-run setup page. Follow redirects that stay
+    // inside the admin; a redirect back to the sign-in page, or any error, is a failed sign-in.
+    $path = '/admin';
+    for ($hop = 0; $hop < 3; $hop++) {
+        $response = $kernel->handle($hop === 0 ? $request : Request::create($path, 'GET'));
+        $status = $response->getStatusCode();
+        if ($status < 300 || $status >= 400) {
+            break;
+        }
+        $path = (string) parse_url((string) $response->headers->get('Location'), PHP_URL_PATH);
+        if (! str_starts_with($path, '/admin') || str_starts_with($path, '/admin/login')) {
+            break;
+        }
+    }
 } catch (Throwable $e) {
     // No success line is printed, which fails the step.
     fwrite(STDERR, 'sign-in failed: ' . $e::class . ': ' . $e->getMessage() . PHP_EOL);
@@ -312,6 +325,7 @@ try {
     return;
 }
 
+echo 'dashboard path=' . $path . PHP_EOL;
 echo 'dashboard status=' . $status . PHP_EOL;
 PHP
     (cd "$APP_DIR" && ADMIN_EMAIL="$(cat "$WORKDIR/admin.email")" php "$LOG_DIR/sign-in.php") >"$LOG_DIR/admin-sign-in.log" 2>&1 || return 1
