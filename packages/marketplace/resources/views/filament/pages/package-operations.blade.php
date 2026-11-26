@@ -9,41 +9,6 @@
         data-capell-marketplace-package-operations
         @if ($selectedOperation?->status->isActiveInstallOperation()) wire:poll.2s @endif
     >
-        <div
-            class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
-        >
-            <div>
-                <h1
-                    class="text-2xl font-semibold tracking-normal text-gray-950 dark:text-white"
-                >
-                    {{ __('capell-marketplace::marketplace.operations.page_title') }}
-                </h1>
-                <p class="mt-1 max-w-3xl text-sm text-gray-600 dark:text-gray-400">
-                    {{ __('capell-marketplace::marketplace.operations.page_description') }}
-                </p>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-                <x-filament::button
-                    tag="a"
-                    color="gray"
-                    href="{{ $this->extensionsUrl() }}"
-                    icon="heroicon-o-puzzle-piece"
-                >
-                    {{ __('capell-marketplace::marketplace.operations.extensions') }}
-                </x-filament::button>
-
-                <x-filament::button
-                    tag="a"
-                    color="gray"
-                    href="{{ $this->marketplaceUrl() }}"
-                    icon="heroicon-o-shopping-bag"
-                >
-                    {{ __('capell-marketplace::marketplace.operations.marketplace') }}
-                </x-filament::button>
-            </div>
-        </div>
-
         {{ $this->content }}
 
         <x-filament::section>

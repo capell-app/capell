@@ -33,14 +33,25 @@ concurrency:
 
 jobs:
   upgrade-path:
-    name: Published release upgrades cleanly to this Core (${{ matrix.database }})
+    name: Published release upgrades cleanly to this Core (${{ matrix.name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         # SQLite is what the skeleton installs; MariaDB 10.11 is what production runs. The
         # script starts its own MariaDB container, so the job needs no service block.
-        database: [sqlite, mariadb]
+        # The third leg reaches MariaDB through Laravel's mariadb driver, whose native UUID
+        # columns behave differently from the mysql driver's text.
+        include:
+          - name: sqlite
+            database: sqlite
+            driver: ''
+          - name: mariadb
+            database: mariadb
+            driver: mysql
+          - name: mariadb, mariadb driver
+            database: mariadb
+            driver: mariadb
     # A hang ceiling only, never a speed assertion.
     timeout-minutes: 30
     steps:
@@ -65,8 +76,12 @@ jobs:
         env:
           FROM_VERSION: ${{ inputs.from }}
           DATABASE: ${{ matrix.database }}
+          DRIVER: ${{ matrix.driver }}
         run: |
           arguments=(--workdir "$RUNNER_TEMP/upgrade-path" --database "$DATABASE")
+          if [ -n "$DRIVER" ]; then
+            arguments+=(--driver "$DRIVER")
+          fi
           if [ -n "$FROM_VERSION" ]; then
             arguments+=(--from "$FROM_VERSION")
           fi
@@ -75,8 +90,9 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: upgrade-path-logs-${{ matrix.database }}
+          name: upgrade-path-logs-${{ matrix.database }}-${{ matrix.driver || 'default' }}
           path: |
             ${{ runner.temp }}/upgrade-path/logs
             ${{ runner.temp }}/upgrade-path/evidence
+            ${{ runner.temp }}/upgrade-path/app/storage/logs
           if-no-files-found: ignore

@@ -6,8 +6,11 @@ namespace Capell\Marketplace\Filament\Pages;
 
 use BackedEnum;
 use BezhanSalleh\FilamentShield\Traits\HasPageShield;
+use Capell\Admin\Actions\Extensions\PrepareInstalledExtensionReloadAction;
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Core\Actions\InstallPackageAction;
 use Capell\Core\Data\Marketplace\ExtensionLicenceDecisionData;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Enums\ExtensionLicenceStatus;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Actions\AssertNoActiveMarketplaceOperationAction;
@@ -25,12 +28,16 @@ use Capell\Marketplace\Data\MarketplaceInstallRequestData;
 use Capell\Marketplace\Enums\MarketplaceInstallSource;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
 use Capell\Marketplace\Enums\MarketplacePermission;
+use Capell\Marketplace\Filament\Actions\ConnectMarketplaceAccountAction;
+use Capell\Marketplace\Filament\Actions\MarketplaceConnectionFormModel;
 use Capell\Marketplace\Filament\Support\MarketplaceErrorPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceInstallActionPresenter;
 use Capell\Marketplace\Filament\Support\MarketplaceUpdateChangelogPresenter;
 use Capell\Marketplace\Filament\Widgets\ExtensionHealthAlertsFilamentWidget;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Marketplace\Support\MarketplaceWebUrl;
+use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Pages\PageConfiguration;
@@ -46,6 +53,7 @@ use InvalidArgumentException;
 use Override;
 use RuntimeException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
 final class MarketplaceExtensionDetailPage extends Page
 {
@@ -136,6 +144,18 @@ final class MarketplaceExtensionDetailPage extends Page
         }
 
         return $this->detail()->name ?? (string) __('capell-marketplace::marketplace.detail.title');
+    }
+
+    /**
+     * The extension hero carries the page's heading, so the panel header
+     * stays empty unless the detail could not load.
+     */
+    #[Override]
+    public function getHeading(): ?string
+    {
+        return $this->detailLoadError === null && $this->detail() instanceof ExtensionDetailData
+            ? null
+            : $this->getTitle();
     }
 
     public function detail(): ?ExtensionDetailData
@@ -552,13 +572,164 @@ final class MarketplaceExtensionDetailPage extends Page
      */
     public function requiresManualInstallInstructions(): bool
     {
+        // An installed extension has nothing left to install, by hand or otherwise.
         return $this->manualInstallCommands() !== []
+            && $this->installedVersion() === null
             && ! $this->environmentReadiness()->canInstallAutomatically();
+    }
+
+    /**
+     * The extension's code is on this server, from a Composer run the operator did by hand, but Capell has not
+     * installed it yet. That last step needs no Composer, so it is finished here rather than with another command.
+     */
+    public function packageAwaitingInstall(): ?PackageData
+    {
+        $composerName = $this->detail()?->composerName;
+
+        if (! is_string($composerName) || $composerName === '') {
+            return null;
+        }
+
+        foreach (ExtensionListingData::localPackageComposerNameCandidates($composerName) as $candidateComposerName) {
+            if (CapellCore::hasPackage($candidateComposerName)) {
+                $package = CapellCore::getPackage($candidateComposerName);
+
+                return $package->isInstalled() ? null : $package;
+            }
+        }
+
+        return null;
+    }
+
+    public function canFinishInstall(): bool
+    {
+        return ExtensionsPage::canManageExtensions() && $this->packageAwaitingInstall() instanceof PackageData;
+    }
+
+    public function finishInstall(): void
+    {
+        abort_unless(ExtensionsPage::canManageExtensions(), 403);
+        abort_unless(self::canAccess(), 403);
+
+        $package = $this->packageAwaitingInstall();
+
+        if (! $package instanceof PackageData) {
+            return;
+        }
+
+        $name = $this->detail()?->name ?? $package->name;
+
+        try {
+            InstallPackageAction::run($package);
+            PrepareInstalledExtensionReloadAction::run();
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            Notification::make('marketplace-finish-install-failed')
+                ->danger()
+                ->title((string) __('capell-marketplace::marketplace.detail.finish_install_failed', ['name' => $name]))
+                ->body($throwable->getMessage())
+                ->send();
+
+            return;
+        }
+
+        Notification::make('marketplace-finish-install-done')
+            ->success()
+            ->title((string) __('capell-marketplace::marketplace.detail.finish_install_done', ['name' => $name]))
+            ->send();
+
+        $this->redirect(self::getUrl(['slug' => $this->extensionSlug]), navigate: false);
     }
 
     public function showManualInstallInstructions(): void
     {
         $this->showManualInstallCommands = true;
+    }
+
+    /**
+     * The connect action is offered in the install panel, so the visitor who
+     * learns why they cannot install can act on it without leaving the page.
+     */
+    public function connectMarketplaceAccountAction(): Action
+    {
+        return ConnectMarketplaceAccountAction::make(resolve(MarketplaceConnectionFormModel::class))
+            ->size('lg');
+    }
+
+    public function ratingAverage(): ?float
+    {
+        $rating = $this->detail()?->ratingsSummary['average'] ?? null;
+
+        return is_numeric($rating) ? min(5.0, max(0.0, round((float) $rating, 1))) : null;
+    }
+
+    public function ratingsCount(): int
+    {
+        $count = $this->detail()?->ratingsSummary['count'] ?? null;
+
+        return is_numeric($count) && (int) $count > 0 ? (int) $count : 0;
+    }
+
+    public function commentsCount(): int
+    {
+        $count = $this->detail()?->commentsSummary['count'] ?? null;
+
+        return is_numeric($count) && (int) $count > 0 ? (int) $count : 0;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function categoryLabels(): array
+    {
+        return array_values(array_filter(array_map(
+            $this->stateLabel(...),
+            $this->detail()->categories ?? [],
+        )));
+    }
+
+    /**
+     * Platform version constraints the Marketplace publishes for the release,
+     * keyed by the platform's display name.
+     *
+     * @return array<string, string>
+     */
+    public function compatibilityRequirements(): array
+    {
+        $metadata = $this->detail()->metadata ?? [];
+        $requirements = [];
+
+        foreach ([
+            'capell_version_constraint' => 'Capell',
+            'laravel_version_constraint' => 'Laravel',
+            'filament_version_constraint' => 'Filament',
+            'livewire_version_constraint' => 'Livewire',
+            'php_version_constraint' => 'PHP',
+        ] as $key => $platform) {
+            $constraint = $metadata[$key] ?? null;
+
+            if (is_string($constraint) && $constraint !== '') {
+                $requirements[$platform] = $constraint;
+            }
+        }
+
+        return $requirements;
+    }
+
+    public function releasedAtLabel(): ?string
+    {
+        $releasedAt = $this->detail()->metadata['released_at'] ?? null;
+
+        if (! is_string($releasedAt) || $releasedAt === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($releasedAt)->translatedFormat('j M Y');
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     public function ratingIsRequired(): bool

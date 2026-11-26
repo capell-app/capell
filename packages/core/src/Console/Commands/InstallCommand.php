@@ -1545,7 +1545,7 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
         if ($siteUrl === null || $siteUrl === '') {
             $this->logInstallDebug('prompting for site url');
-            $this->requireInteractiveOrFail('Site URL', 'Pass --url=<url>.');
+            $this->requireInteractiveOrFail('Site URL', 'Set APP_URL in .env or pass --url=<url>.');
             $siteUrl = text(
                 label: __('capell-core::install.site.url_label'),
                 default: $this->defaultSiteUrl(),
@@ -2142,7 +2142,11 @@ class InstallCommand extends Command implements InstallOrchestrationHost
 
     private function defaultSiteUrl(): string
     {
-        return $this->stringConfigValue(config('app.url'));
+        $appUrl = $this->stringConfigValue(config('app.url'));
+
+        // The skeleton ships with an empty APP_URL, so a local install offers the address `php artisan serve` uses.
+        // Any other environment keeps the empty value so an unattended install refuses instead of guessing.
+        return $appUrl === '' && app()->environment('local') ? 'http://localhost:8000' : $appUrl;
     }
 
     private function recordManualInstallChange(string $message): void

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Capell\Admin\Filament\Pages\ExtensionsPage;
+use Capell\Core\Actions\InstallPackageAction;
+use Capell\Core\Data\PackageData;
 use Capell\Core\Facades\CapellCore;
 use Capell\Marketplace\Contracts\MarketplaceInstalledPackageVersionResolver;
 use Capell\Marketplace\Enums\MarketplaceConnectionMode;
@@ -447,6 +449,63 @@ it('keeps the install instructions a disclosure on a host that installs automati
         ->assertSee(__('capell-marketplace::marketplace.detail.manual_install_checkbox_label'));
 });
 
+it('finishes in the browser the install of an extension whose code Composer already put on the server', function (): void {
+    // Catches: a manual-only host sending the operator back to the shell for the step that needs no Composer, or
+    // offering Finish install for an extension that is not on the server or is already installed.
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+    test()->authenticatedUser()->givePermissionTo(Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web'));
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.web_url' => 'https://marketplace.test',
+    ]);
+
+    Http::fake([
+        'https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse(),
+    ]);
+
+    fakeMarketplaceEnvironmentReadiness(capability: MarketplaceInstallCapability::ManualOnly);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertDontSeeHtml('data-capell-marketplace-finish-install');
+
+    CapellCore::registerPackage('capell-app/seo-suite', version: '2.0.0');
+    CapellCore::forcePackageInstalled('capell-app/seo-suite', false);
+
+    InstallPackageAction::mock()->shouldReceive('handle')->once()
+        ->withArgs(fn (PackageData $package): bool => $package->name === 'capell-app/seo-suite');
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertSeeHtml('data-capell-marketplace-finish-install')
+        ->call('finishInstall')
+        ->assertRedirect(MarketplaceExtensionDetailPage::getUrl(['slug' => 'seo-suite']));
+
+    CapellCore::forcePackageInstalled('capell-app/seo-suite');
+
+    // Installed: nothing to finish and no "install this yourself" prompt left behind.
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertDontSeeHtml('data-capell-marketplace-finish-install')
+        ->assertDontSeeHtml('data-capell-marketplace-manual-install-cta');
+});
+
+it('refuses a finish-install call from a user who may not reach the marketplace', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    InstallPackageAction::mock()->shouldNotReceive('handle');
+
+    $page = new MarketplaceExtensionDetailPage;
+    $page->extensionSlug = 'seo-suite';
+
+    expect(MarketplaceExtensionDetailPage::canAccess())->toBeFalse()
+        ->and(function () use ($page): void {
+            $page->finishInstall();
+        })->toThrow(HttpException::class);
+});
+
 it('offers no update while the extension already has an operation in flight', function (): void {
     Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
     test()->actingAsAdmin();
@@ -592,3 +651,44 @@ it('renders supported release text safely in history and update consent without 
         ->and(MarketplaceInstallAttempt::query()->count())->toBe(0);
     Queue::assertNotPushed(RunMarketplaceUpdateAttemptJob::class);
 })->with(['summary', 'notes', 'changelog', 'body', 'description']);
+
+it('offers the connect account action in the install panel to a manager on an unconnected site', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    Permission::findOrCreate(ExtensionsPage::MANAGE_PERMISSION, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo([
+        MarketplacePermission::ViewMarketplacePage->value,
+        ExtensionsPage::MANAGE_PERMISSION,
+    ]);
+
+    config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
+    Http::fake(['https://marketplace.test/api/extensions/seo-suite' => Http::response([
+        'data' => [
+            'slug' => 'seo-suite',
+            'name' => 'Advanced SEO Suite',
+            'composer_name' => 'capell-app/seo-suite',
+            'kind' => 'plugin',
+            'licence' => ['licence_status' => 'none', 'can_install' => false],
+        ],
+    ])]);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertSee('Why not?')
+        ->assertActionVisible('connectMarketplaceAccount')
+        ->assertSeeHtml('data-capell-marketplace-connect-account')
+        ->assertSee(__('capell-marketplace::marketplace.marketplace.connect_account_button'));
+});
+
+it('does not offer the connect account action to a viewer who cannot manage extensions', function (): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config(['capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api']);
+    Http::fake(['https://marketplace.test/api/extensions/seo-suite' => marketplaceDetailResponse()]);
+
+    Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'seo-suite'])
+        ->assertSuccessful()
+        ->assertDontSeeHtml('data-capell-marketplace-connect-account');
+});

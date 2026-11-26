@@ -15,6 +15,7 @@ use Capell\Core\Models\Page;
 use Capell\Core\Models\PageUrl;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\SiteDomains\SiteDomainAddressing;
+use Capell\Marketplace\Services\MarketplaceClient;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Routing\Route as IlluminateRoute;
 use Illuminate\Support\Facades\DB;
@@ -217,8 +218,15 @@ it('uses the configured screenshot port for the local marketplace fixture', func
     config()->set('screenshot.port', 18147);
     new ScreenshotWorkbenchServiceProvider(app())->register();
 
-    expect(config('capell-marketplace.marketplace.base_url'))->toBe('http://127.0.0.1:18147/api/v1')
-        ->and(config('capell-marketplace.marketplace.web_url'))->toBe('http://127.0.0.1:18147');
+    expect(config('capell-marketplace.marketplace.web_url'))->toBe('http://127.0.0.1:18147');
+});
+
+it('serves the marketplace detail fixture through the https-only marketplace client', function (): void {
+    $provider = new ScreenshotWorkbenchServiceProvider(app());
+    $provider->register();
+    $provider->boot();
+
+    expect(resolve(MarketplaceClient::class)->getExtensionDetail('seo-suite')?->name)->toBe('Advanced SEO Suite');
 });
 
 it('seeds reusable action screenshot records and protects their routes', function (): void {

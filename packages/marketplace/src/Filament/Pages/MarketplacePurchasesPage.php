@@ -17,7 +17,6 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Contracts\Support\Htmlable;
 use Override;
 
 final class MarketplacePurchasesPage extends Page
@@ -61,9 +60,9 @@ final class MarketplacePurchasesPage extends Page
     }
 
     #[Override]
-    public function getHeading(): string|Htmlable|null
+    public function getSubheading(): string
     {
-        return null;
+        return (string) __('capell-marketplace::marketplace.purchases.description');
     }
 
     /** @return array<string, mixed> */

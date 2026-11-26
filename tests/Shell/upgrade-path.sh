@@ -84,11 +84,26 @@ check 'a removal declared in the allowed changes passes' 0 $?
 compare deleted-rows "$scratch/allowed.json"
 check 'an allowed change does not excuse a different loss' 1 $?
 
+echo '{"tables": {}, "columns": {}, "renamed_tables": {"pages": {"to": "documents", "reason": "renamed"}}}' >"$scratch/allowed-rename.json"
+snapshot_after renamed "ALTER TABLE pages RENAME TO documents;"
+compare renamed "$scratch/allowed-rename.json"
+check 'a declared rename that keeps the rows passes' 0 $?
+compare renamed
+check 'an undeclared rename fails as a dropped table' 1 $?
+snapshot_after renamed-lossy "ALTER TABLE pages RENAME TO documents; DELETE FROM documents WHERE title = 'About';"
+compare renamed-lossy "$scratch/allowed-rename.json"
+check 'a declared rename still fails when rows are lost' 1 $?
+contains 'the loss is counted under the new name' "$scratch/renamed-lossy.out" 'documents lost rows: 3 before, 2 after'
+compare dropped-table "$scratch/allowed-rename.json"
+check 'a declared rename fails when the new table is missing' 1 $?
+
 php "$database" pick-column "$scratch/before.json" "$scratch/none.json" >"$scratch/pick.out" 2>&1
 check 'a droppable populated column is found for the seeded fault' 'pages summary' "$(cat "$scratch/pick.out")"
 
 bash "$script" --database oracle >"$scratch/engine.out" 2>&1
 check 'unknown database engine exits 2' 2 $?
+bash "$script" --driver mariadb >"$scratch/driver.out" 2>&1
+check 'a Laravel driver without a MariaDB server exits 2' 2 $?
 bash "$script" --inject nonsense >"$scratch/inject.out" 2>&1
 check 'unknown fault exits 2' 2 $?
 bash "$script" --from latest >"$scratch/from.out" 2>&1
@@ -185,6 +200,46 @@ check 'a page that renders without the title it had fails' 1 $?
 site '{"/": [200, "Home"], "/about": [200, "About us"], "/gone": [500, "Server Error"]}'
 recheck missing-page-errors
 check 'a 404 that became a server error fails' 1 $?
+
+# A server that dies on one request must stop the check there and say how it ended, not fail every
+# later page with status 0. The fake artisan starts a PHP server that kills itself on /boom.
+cat >"$scratch/mortal-router.php" <<'ROUTER'
+<?php
+if (parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) === '/boom') {
+    posix_kill(getmypid(), SIGKILL);
+}
+http_response_code(200);
+echo '<html><head><title>Fine</title></head></html>';
+ROUTER
+mkdir -p "$scratch/mortal-app"
+cat >"$scratch/mortal-app/artisan" <<ARTISAN
+<?php
+preg_match('/--port=(\d+)/', implode(' ', \$argv), \$port);
+passthru('exec php -S 127.0.0.1:' . \$port[1] . ' $scratch/mortal-router.php');
+ARTISAN
+mortal_port="$((site_port + 1))"
+printf '{"/": {"status": 200, "title": "Fine", "problem": null}, "/boom": {"status": 200, "title": "Fine", "problem": null}, "/after": {"status": 200, "title": "Fine", "problem": null}}' >"$scratch/mortal-before.json"
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root" --workdir "$scratch/mortal-work" --port "$mortal_port"
+    prepare_workdir
+    APP_DIR="$scratch/mortal-app"
+    start_server || exit 5
+    pages_tool recheck "http://127.0.0.1:$mortal_port" "$scratch/mortal-before.json" "$scratch/none.json" public
+    status=$?
+    stop_server
+    exit "$status"
+) >"$scratch/mortal.out" 2>&1
+check 'a server that dies mid-run fails the check with exit 3' 3 $?
+contains 'the request that got no answer is named' "$scratch/mortal.out" 'SERVER STOPPED ANSWERING at http://127.0.0.1:'"$mortal_port"'/boom'
+contains 'the server is reported as no longer running or exited' "$scratch/mortal.out" '== the server stopped answering =='
+if grep -q '/after' "$scratch/mortal.out"; then
+    printf 'FAIL the check went on to pages after the server died\n'
+    failures=$((failures + 1))
+else
+    printf 'ok   the check stops at the first page the dead server could not answer\n'
+fi
 
 if ((failures > 0)); then
     printf '%d check(s) failed\n' "$failures"
