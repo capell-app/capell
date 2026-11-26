@@ -25,6 +25,8 @@ declare(strict_types=1);
  */
 const MAXIMUM_PAGES = 200;
 
+final class ServerStopped extends RuntimeException {}
+
 /**
  * @return array{status: int, type: string, body: string, url: string}
  */
@@ -46,6 +48,12 @@ function fetch(string $url, ?string $cookieJar = null): array
     }
 
     $body = curl_exec($handle);
+
+    // Nothing was listening, or the connection dropped without a reply: the server is gone, which
+    // says nothing about this page. A timeout is different: the server is there but slow.
+    if ($body === false && in_array(curl_errno($handle), [CURLE_COULDNT_CONNECT, CURLE_GOT_NOTHING, CURLE_SEND_ERROR, CURLE_RECV_ERROR], true)) {
+        throw new ServerStopped(sprintf('%s: %s', $url, curl_error($handle)));
+    }
 
     return [
         'status' => curl_getinfo($handle, CURLINFO_RESPONSE_CODE),
@@ -270,6 +278,21 @@ function writePages(string $file, array $pages): int
  * @param  list<string>  $arguments
  */
 function main(array $arguments): int
+{
+    try {
+        return dispatch($arguments);
+    } catch (ServerStopped $serverStopped) {
+        // Stop at the first request that got no answer, rather than failing every page after it.
+        fwrite(STDERR, sprintf("SERVER STOPPED ANSWERING at %s\n", $serverStopped->getMessage()));
+
+        return 3;
+    }
+}
+
+/**
+ * @param  list<string>  $arguments
+ */
+function dispatch(array $arguments): int
 {
     $command = $arguments[1] ?? '';
     $baseUrl = rtrim($arguments[2] ?? '', '/');

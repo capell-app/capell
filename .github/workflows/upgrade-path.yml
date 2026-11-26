@@ -94,4 +94,5 @@ jobs:
           path: |
             ${{ runner.temp }}/upgrade-path/logs
             ${{ runner.temp }}/upgrade-path/evidence
+            ${{ runner.temp }}/upgrade-path/app/storage/logs
           if-no-files-found: ignore

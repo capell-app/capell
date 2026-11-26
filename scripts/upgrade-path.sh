@@ -241,9 +241,38 @@ stop_server() {
     [[ -n "$WORKDIR" && -f "$pid_file" ]] || return 0
     pid="$(cat "$pid_file")"
     rm -f "$pid_file"
-    # `php artisan serve` starts a child PHP server; stop both.
-    pkill -P "$pid" 2>/dev/null || true
-    kill "$pid" 2>/dev/null || true
+    kill_tree "$pid"
+}
+
+# Stops a process and everything it started: the server is a shell that runs `php artisan
+# serve`, which starts the PHP server itself. Children are found by parent id, never by name.
+kill_tree() { # pid
+    local child
+    for child in $(pgrep -P "$1" 2>/dev/null || true); do
+        kill_tree "$child"
+    done
+    kill "$1" 2>/dev/null || true
+}
+
+# Said when a page request got no answer at all: whether the server is still there, how it ended
+# and what it logged last, so a dead server is not read as 20 broken pages.
+explain_server() {
+    local pid_file="$WORKDIR/server.pid" exit_file="$WORKDIR/server.exit"
+    echo "== the server stopped answering =="
+    if [[ -f "$exit_file" ]]; then
+        echo "php artisan serve exited with status $(cat "$exit_file") (137 = killed, 139 = crashed)"
+    elif [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
+        echo "php artisan serve is still running but does not answer"
+    else
+        echo "php artisan serve is no longer running"
+    fi
+    echo "-- the last lines of $LOG_DIR/serve.log --"
+    tail -n 15 "$LOG_DIR/serve.log" 2>/dev/null || true
+    echo "-- the host --"
+    { free -m || vm_stat; } 2>/dev/null | head -n 4 || true
+    { grep -m1 'model name' /proc/cpuinfo; nproc; php -v | head -n 1; } 2>/dev/null || true
+    # Runners allow sudo without a password; a local machine that does not simply prints nothing.
+    { sudo -n dmesg 2>/dev/null || dmesg 2>/dev/null; } | tail -n 8 || true
 }
 
 start_server() {
@@ -253,11 +282,18 @@ start_server() {
         echo "port $PORT is already serving something else"
         return 1
     fi
-    (cd "$APP_DIR" && exec php artisan serve --no-reload --host=127.0.0.1 --port="$PORT" >>"$LOG_DIR/serve.log" 2>&1) &
+    rm -f "$WORKDIR/server.exit"
+    # The subshell stays as the server's parent so how the server ended is written down.
+    (
+        cd "$APP_DIR" || exit 1
+        status=0
+        php artisan serve --no-reload --host=127.0.0.1 --port="$PORT" >>"$LOG_DIR/serve.log" 2>&1 || status=$?
+        echo "$status" >"$WORKDIR/server.exit"
+    ) &
     pid=$!
     echo "$pid" >"$WORKDIR/server.pid"
     for attempt in $(seq 1 60); do
-        kill -0 "$pid" 2>/dev/null || {
+        [[ ! -f "$WORKDIR/server.exit" ]] || {
             echo "php artisan serve exited; see $LOG_DIR/serve.log"
             return 1
         }
@@ -487,6 +523,16 @@ warn() {
     printf '%s\n' "$1" >>"$EVIDENCE_DIR/warnings.txt"
 }
 
+# Runs the page checker. It exits 3 when a request got no answer; then the server is explained.
+pages_tool() {
+    local status=0
+    php "$HELPERS/pages.php" "$@" || status=$?
+    if ((status == 3)); then
+        explain_server >&2
+    fi
+    return "$status"
+}
+
 # Starts an administrator session in a fresh cookie jar; the server must be running.
 administrator_session() { # cookie jar
     rm -f "$1"
@@ -501,9 +547,9 @@ step_record_before() {
     database_tool page-paths "$(database_dsn)" >"$EVIDENCE_DIR/page-paths.txt"
     admin_page_uris >"$EVIDENCE_DIR/admin-paths-before.txt"
     start_server
-    php "$HELPERS/pages.php" crawl "$base" "$EVIDENCE_DIR/pages-before.json" "$(admin_path)" "$EVIDENCE_DIR/page-paths.txt" | tee "$LOG_DIR/pages-before.log"
+    pages_tool crawl "$base" "$EVIDENCE_DIR/pages-before.json" "$(admin_path)" "$EVIDENCE_DIR/page-paths.txt" | tee "$LOG_DIR/pages-before.log"
     administrator_session "$jar"
-    php "$HELPERS/pages.php" record "$base" "$EVIDENCE_DIR/admin-before.json" "$EVIDENCE_DIR/admin-paths-before.txt" "$jar" >"$LOG_DIR/admin-before.log"
+    pages_tool record "$base" "$EVIDENCE_DIR/admin-before.json" "$EVIDENCE_DIR/admin-paths-before.txt" "$jar" >"$LOG_DIR/admin-before.log"
     tail -n 1 "$LOG_DIR/admin-before.log"
     sign_in_status >"$EVIDENCE_DIR/sign-in-before"
     stop_server
@@ -583,7 +629,7 @@ step_refresh_runtime() {
 
 step_public_pages_render() {
     start_server
-    php "$HELPERS/pages.php" recheck "http://127.0.0.1:$PORT" "$EVIDENCE_DIR/pages-before.json" "$HELPERS/allowed-changes.json" public | tee "$LOG_DIR/pages-after.log"
+    pages_tool recheck "http://127.0.0.1:$PORT" "$EVIDENCE_DIR/pages-before.json" "$HELPERS/allowed-changes.json" public | tee "$LOG_DIR/pages-after.log"
     stop_server
 }
 
@@ -597,7 +643,7 @@ step_admin_pages_render() {
         return 1
     }
     administrator_session "$jar"
-    php "$HELPERS/pages.php" recheck "$base" "$EVIDENCE_DIR/admin-before.json" "$HELPERS/allowed-changes.json" admin "$EVIDENCE_DIR/admin-paths-after.txt" "$jar" | tee "$LOG_DIR/admin-after.log"
+    pages_tool recheck "$base" "$EVIDENCE_DIR/admin-before.json" "$HELPERS/allowed-changes.json" admin "$EVIDENCE_DIR/admin-paths-after.txt" "$jar" | tee "$LOG_DIR/admin-after.log"
     stop_server
 }
 
