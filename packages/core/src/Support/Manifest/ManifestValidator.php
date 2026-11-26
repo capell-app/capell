@@ -89,6 +89,7 @@ final class ManifestValidator
         'order',
         'installPath',
         'visibility',
+        'launchStatus',
         'documentationUrl',
         'agent_tools',
         'agent_tools_reason',
@@ -99,6 +100,9 @@ final class ManifestValidator
 
     /** @var list<string> */
     private const array VALID_VISIBILITIES = ['catalogue', 'support'];
+
+    /** @var list<string> */
+    private const array VALID_LAUNCH_STATUSES = ['shipped', 'preview', 'hidden'];
 
     /** @var list<string> */
     private const array REQUIRED_PROVIDER_BUCKETS = ['metadata', 'install', 'runtime', 'admin', 'frontend'];
@@ -224,6 +228,10 @@ final class ManifestValidator
         $visibility = (string) ($data['visibility'] ?? 'catalogue');
         if (! in_array($visibility, self::VALID_VISIBILITIES, strict: true)) {
             throw InvalidManifestException::invalidField('visibility', 'must be one of: ' . implode(', ', self::VALID_VISIBILITIES));
+        }
+
+        if (array_key_exists('launchStatus', $data) && ! in_array($data['launchStatus'], self::VALID_LAUNCH_STATUSES, strict: true)) {
+            throw InvalidManifestException::invalidField('launchStatus', 'must be one of: ' . implode(', ', self::VALID_LAUNCH_STATUSES));
         }
 
         if (! preg_match('/^[a-z0-9][a-z0-9-]*[a-z0-9]$/', (string) $data['slug'])) {
