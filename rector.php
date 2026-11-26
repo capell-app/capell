@@ -65,8 +65,14 @@ $analysedPaths = [
     __DIR__ . '/tests',
 ];
 
-return RectorConfig::configure()
-    ->withSetProviders(LaravelSetProvider::class)
+$configuration = RectorConfig::configure();
+
+// Rector 2.9 removed set providers; its composer-based Laravel sets replace them. Older Rector still needs the provider.
+$configuration = method_exists($configuration, 'withSetProviders')
+    ? $configuration->withSetProviders(LaravelSetProvider::class)
+    : $configuration->withComposerBased(laravel: true);
+
+return $configuration
     ->withSets([
         LaravelSetList::LARAVEL_ARRAYACCESS_TO_METHOD_CALL,
         LaravelSetList::LARAVEL_ARRAY_STR_FUNCTION_TO_STATIC_CALL,
@@ -110,7 +116,8 @@ return RectorConfig::configure()
         symfonyConfigs: true,
     )
     ->withRules([
-        AddOverrideAttributeToOverriddenMethodsRector::class,
+        // Rector 2.9 no longer ships this rule; naming a rule that does not exist is an error.
+        ...(class_exists(AddOverrideAttributeToOverriddenMethodsRector::class) ? [AddOverrideAttributeToOverriddenMethodsRector::class] : []),
         AssertElementToAssertContainsElementRule::class,
     ])
     ->withSkip([
@@ -119,7 +126,8 @@ return RectorConfig::configure()
         RemoveUnusedPublicMethodParameterRector::class => [
             __DIR__ . '/packages/admin/src/Support/SiteScope.php',
         ],
-        PostIncDecToPreIncDecRector::class,
+        // Skipping a rule Rector 2.9 no longer ships is an error, so skip it only where it exists.
+        ...(class_exists(PostIncDecToPreIncDecRector::class) ? [PostIncDecToPreIncDecRector::class] : []),
         AddTypeToConstRector::class,
         PrivatizeFinalClassPropertyRector::class,
         ReadOnlyClassRector::class,

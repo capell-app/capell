@@ -12,8 +12,10 @@
 #   --skeleton NAME     Skeleton package for create-project (default: capell-app/capell-skeleton).
 #   --database ENGINE   sqlite (default, the skeleton's own) or mariadb, the engine production
 #                       runs. mariadb starts a disposable mariadb:10.11 container with Docker,
-#                       published on 127.0.0.1 only, and removes it afterwards. The app reaches
-#                       it through Laravel's mysql driver, as production does.
+#                       published on 127.0.0.1 only, and removes it afterwards.
+#   --driver NAME       Laravel driver the app reaches MariaDB through: mysql (default, as
+#                       production does) or mariadb, which creates uuid columns as MariaDB's
+#                       native UUID type. Only with --database mariadb.
 #   --port PORT         Port for `php artisan serve` on 127.0.0.1 (default: 8010).
 #   --workdir DIR       Scratch directory for the app, evidence and logs (default: a new temp
 #                       directory, removed after a passing run and kept after a failing one).
@@ -51,6 +53,7 @@
 #
 # Local run:  heavy run -w 2 upgrade-path -- scripts/upgrade-path.sh
 #             heavy run -w 2 upgrade-path -- scripts/upgrade-path.sh --database mariadb
+#             heavy run -w 2 upgrade-path -- scripts/upgrade-path.sh --database mariadb --driver mariadb
 # Test:       bash tests/Shell/upgrade-path.sh
 
 set -euo pipefail
@@ -62,6 +65,7 @@ CORE_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
 FROM=""
 SKELETON="capell-app/capell-skeleton"
 DATABASE="sqlite"
+DRIVER=""
 MARIADB_IMAGE="mariadb:10.11"
 PORT=8010
 WORKDIR=""
@@ -108,13 +112,14 @@ parse_args() {
                 SELF_CHECK=0
                 shift
                 ;;
-            --core-path | --from | --skeleton | --database | --port | --workdir | --summary | --inject)
+            --core-path | --from | --skeleton | --database | --driver | --port | --workdir | --summary | --inject)
                 (($# >= 2)) || usage_error "$1 needs a value"
                 case "$1" in
                     --core-path) CORE_PATH="$2" ;;
                     --from) FROM="${2#v}" ;;
                     --skeleton) SKELETON="$2" ;;
                     --database) DATABASE="$2" ;;
+                    --driver) DRIVER="$2" ;;
                     --port) PORT="$2" ;;
                     --workdir) WORKDIR="$2" ;;
                     --summary) SUMMARY="$2" ;;
@@ -132,6 +137,9 @@ parse_args() {
     [[ -d "$CORE_PATH/packages/core" ]] || usage_error "--core-path $CORE_PATH has no packages/core directory"
     [[ -z "$FROM" || "$FROM" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || usage_error "--from must be a released version such as 1.0.79"
     [[ "$DATABASE" == "sqlite" || "$DATABASE" == "mariadb" ]] || usage_error "--database must be sqlite or mariadb"
+    [[ -z "$DRIVER" || "$DATABASE" == "mariadb" ]] || usage_error "--driver only applies with --database mariadb"
+    [[ -z "$DRIVER" || "$DRIVER" == "mysql" || "$DRIVER" == "mariadb" ]] || usage_error "--driver must be mysql or mariadb"
+    [[ "$DATABASE" != "mariadb" || -n "$DRIVER" ]] || DRIVER="mysql"
     [[ -z "$INJECT" || "$INJECT" == "broken-step" || "$INJECT" == "destructive-migration" ]] ||
         usage_error "--inject must be broken-step or destructive-migration"
 
@@ -423,12 +431,12 @@ step_start_database() {
 }
 
 # Points the app's .env at the server this run started; SQLite keeps the skeleton's default.
-# Production reaches MariaDB through Laravel's mysql driver, so the check does too.
+# Production reaches MariaDB through Laravel's mysql driver, so that is the default.
 configure_database() {
     [[ "$DATABASE" == "mariadb" ]] || return 0
     grep -vE '^#? ?DB_' "$APP_DIR/.env" >"$APP_DIR/.env.upgrade-path"
     {
-        printf 'DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=%s\n' "$(cat "$WORKDIR/database-port")"
+        printf 'DB_CONNECTION=%s\nDB_HOST=127.0.0.1\nDB_PORT=%s\n' "$DRIVER" "$(cat "$WORKDIR/database-port")"
         printf 'DB_DATABASE=capell\nDB_USERNAME=root\nDB_PASSWORD=%s\n' "$(cat "$WORKDIR/database-password")"
     } >>"$APP_DIR/.env.upgrade-path"
     mv "$APP_DIR/.env.upgrade-path" "$APP_DIR/.env"

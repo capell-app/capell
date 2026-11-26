@@ -806,6 +806,58 @@ final class ReleaseEngine
     }
 
     /**
+     * Tags the monorepo root at the planned source commit with the plain
+     * lockstep version. The root package (capell-app/capell) is the
+     * version-aligned aggregate of the lockstep packages and Packagist reads its
+     * versions from these tags; nothing else creates them, so without this the
+     * aggregate stays at the last tag somebody pushed by hand. Not a lockstep
+     * region: the companion engine has no aggregate.
+     *
+     * @param  array<string, mixed>  $plan
+     * @return string|null the tag name, or null when the plan holds no Core package
+     */
+    public function publishAggregateTag(array $plan): ?string
+    {
+        $tag = $this->aggregateTag($plan);
+        if ($tag === null) {
+            return null;
+        }
+
+        $commit = $plan['source']['commit'];
+        $remote = $this->optional(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $tag]);
+        $remoteSha = $remote === null || $remote === '' ? null : strtok($remote, "\t ");
+        $local = $this->optional(['git', 'rev-parse', '-q', '--verify', 'refs/tags/' . $tag . '^{commit}']);
+        $local = $local === '' ? null : $local;
+        if (($remoteSha !== null && $remoteSha !== $commit) || ($local !== null && $local !== $commit)) {
+            throw new ReleaseException(sprintf('Existing aggregate tag %s does not match the planned source commit.', $tag));
+        }
+
+        if ($remoteSha === null) {
+            if ($local === null) {
+                $this->required(['git', 'tag', $tag, $commit], $this->root);
+            }
+
+            $this->required($this->pushTo('origin', 'refs/tags/' . $tag . ':refs/tags/' . $tag), $this->root);
+        }
+
+        return $tag;
+    }
+
+    /** @param array<string, mixed> $plan */
+    public function verifyAggregateTag(array $plan): void
+    {
+        $tag = $this->aggregateTag($plan);
+        if ($tag === null) {
+            return;
+        }
+
+        $line = $this->required(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/' . $tag], $this->root);
+        if (! str_starts_with($line, $plan['source']['commit'])) {
+            throw new ReleaseException(sprintf('Aggregate tag %s is missing or does not point at the planned source commit.', $tag));
+        }
+    }
+
+    /**
      * Asserts the Composer manifests inside the plan's exact split trees carry
      * the lockstep floor of the planned version. Publication, resume and
      * verification all publish those trees, so every path checks the plan with
@@ -825,6 +877,18 @@ final class ReleaseEngine
 
             LockstepFloor::assertManifest($manifest, $package['name'], $knownNames, $package['proposed_version']);
         }
+    }
+
+    /** @param array<string, mixed> $plan */
+    private function aggregateTag(array $plan): ?string
+    {
+        foreach ($plan['packages'] as $package) {
+            if ($package['name'] === 'capell-app/core') {
+                return 'v' . $package['proposed_version'];
+            }
+        }
+
+        return null;
     }
 
     /**
