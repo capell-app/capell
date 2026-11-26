@@ -18,7 +18,7 @@ The person opens the link from their email and chooses their own password.
 
 ## Sign in with a link
 
-People can choose **Email me a sign-in link instead** on the login page. Capell emails a link that signs them in once, without their password. The page gives the same answer whether or not the address has an account, so nobody can use it to find out who has one.
+A site can let people choose **Email me a sign-in link instead** on the login page. The option is off by default; set `CAPELL_ADMIN_LOGIN_LINK_EMAIL_REQUESTS=true` (config `capell-admin.login_links.email_requests`) to turn it on. While it is off, the login page shows no link option and the request page is not found. Capell emails a link that signs them in once, without their password. The page gives the same answer whether or not the address has an account, so nobody can use it to find out who has one.
 
 ![The page for asking for a sign-in link](../images/generated/admin/action-request-sign-in-link.png)
 
@@ -37,7 +37,7 @@ Operators and automated test harnesses can print a link from the command line in
 php artisan capell:admin-login-link editor@example.com
 ```
 
-Treat the printed link like a password. Set `CAPELL_ADMIN_LOGIN_LINK_EMAIL_REQUESTS=false` to remove the login-page option, or `CAPELL_ADMIN_LOGIN_LINKS_ENABLED=false` to turn links off entirely, including the command.
+Treat the printed link like a password. The command works whether or not the login-page option is on. Set `CAPELL_ADMIN_LOGIN_LINKS_ENABLED=false` to turn links off entirely, including the command.
 
 Requests from the login page are rate limited. Each address receives at most `capell-admin.login_links.max_emails_per_address` links (default 3), and each IP address may make `capell-admin.login_links.max_requests_per_ip` requests (default 10), in every `capell-admin.login_links.request_window_minutes` minutes (default 15). Requests over the per-address limit are dropped without a different answer, so the limit does not reveal who has an account.
 

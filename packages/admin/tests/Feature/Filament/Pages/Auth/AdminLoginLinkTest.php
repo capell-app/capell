@@ -67,6 +67,12 @@ function adminLoginUrl(): string
     return (string) Filament::getPanel('admin')->getLoginUrl();
 }
 
+/** Sites opt in to the login-page request; the tests for that page turn it on. */
+function enableEmailRequests(): void
+{
+    config()->set('capell-admin.login_links.email_requests', true);
+}
+
 function issuedLoginLink(User $user): string
 {
     return IssueAdminLoginLinkAction::run($user, AdminLoginLinks::panel());
@@ -270,6 +276,7 @@ it('refuses links entirely when they are turned off', function (): void {
 });
 
 it('emails a working link from the login page', function (): void {
+    enableEmailRequests();
     $user = loginLinkAdmin();
 
     $this->get(adminLoginUrl())
@@ -297,6 +304,7 @@ it('emails a working link from the login page', function (): void {
 });
 
 it('gives the same answer whether or not the address has an account', function (string $email): void {
+    enableEmailRequests();
     loginLinkAdmin();
     test()->createUser(['email' => 'visitor@example.test'])->syncRoles([]);
 
@@ -308,6 +316,7 @@ it('gives the same answer whether or not the address has an account', function (
 })->with(['operator@example.test', 'nobody@example.test', 'visitor@example.test']);
 
 it('sends nothing to an unknown address or to someone without panel access', function (): void {
+    enableEmailRequests();
     $visitor = test()->createUser(['email' => 'visitor@example.test']);
     $visitor->syncRoles([]);
 
@@ -320,6 +329,7 @@ it('sends nothing to an unknown address or to someone without panel access', fun
 });
 
 it('limits how many links one address receives', function (): void {
+    enableEmailRequests();
     $user = loginLinkAdmin();
     $page = Livewire::test(RequestLoginLink::class);
 
@@ -333,6 +343,7 @@ it('limits how many links one address receives', function (): void {
 });
 
 it('makes one connection wait after too many requests', function (): void {
+    enableEmailRequests();
     $this->freezeTime();
     $page = Livewire::test(RequestLoginLink::class);
 
@@ -358,14 +369,30 @@ it('rate limits sign-in attempts from one connection', function (): void {
     $page->call('signIn')->assertNotified(__('capell-admin::login_links.sign_in.throttled', ['seconds' => 60]));
 });
 
-it('hides the login-page request when email requests are turned off', function (): void {
+it('keeps the login-page request off unless the site turns it on', function (): void {
+    loginLinkAdmin();
+    $requestUrl = route(Filament::getPanel('admin')->generateRouteName(RequestLoginLink::ROUTE_NAME));
+
+    $this->get(adminLoginUrl())->assertSuccessful()->assertDontSee(__('capell-admin::login_links.login_page.link'));
+    $this->get($requestUrl)->assertNotFound();
+
+    // The command is for operators and harnesses, so it keeps working.
+    expect(loginLinkCommand('operator@example.test')['exitCode'])->toBe(0);
+});
+
+it('refuses a request submitted from a page opened before the site turned the option off', function (): void {
+    enableEmailRequests();
+    $user = loginLinkAdmin();
+    $page = Livewire::test(RequestLoginLink::class)->fillForm(['email' => 'operator@example.test']);
+
     config()->set('capell-admin.login_links.email_requests', false);
 
-    $this->get(adminLoginUrl())->assertDontSee(__('capell-admin::login_links.login_page.link'));
-    $this->get(route(Filament::getPanel('admin')->generateRouteName(RequestLoginLink::ROUTE_NAME)))->assertNotFound();
+    $page->call('request')->assertNotFound();
+    Notification::assertNotSentTo($user, AdminLoginLinkNotification::class);
 });
 
 it('gives the same answer when sending the email fails', function (): void {
+    enableEmailRequests();
     loginLinkAdmin();
     Notification::shouldReceive('send')->andThrow(new RuntimeException('Mail transport is down'));
 

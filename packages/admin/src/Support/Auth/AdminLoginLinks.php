@@ -33,7 +33,7 @@ final class AdminLoginLinks
 
     public static function emailRequestsEnabled(): bool
     {
-        return self::enabled() && (bool) config('capell-admin.login_links.email_requests', true);
+        return self::enabled() && (bool) config('capell-admin.login_links.email_requests', false);
     }
 
     public static function expiresInMinutes(): int
