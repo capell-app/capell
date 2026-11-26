@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
 use Capell\Admin\Actions\Extensions\ResolveExtensionAssetPathAction;
+use Capell\Admin\Support\Extensions\ExtensionAssetUrl;
 use Capell\Core\Data\Manifest\ExtensionScreenshotData;
 use Capell\Core\Support\Manifest\CapellManifestData;
 use Capell\Core\Support\Marketplace\MarketplaceAssetUrl;
@@ -14,6 +15,7 @@ use Filament\Panel;
 use Filament\PanelRegistry;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Date;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -106,6 +108,21 @@ it('serves declared screenshots and the fixed marketplace card to an admin as im
 
     expect($response->headers->get('Cache-Control'))->toContain('private', 'no-store')->not->toContain('public');
 })->with(['docs/screenshot.png', 'docs/assets/marketplace/extension-card.jpg', 'docs/mixed.PnG', 'docs/large.png']);
+
+it('lets the browser keep an image only through a link carrying its current version', function (): void {
+    $manifest = resolve(CapellPackageRegistry::class)->all()['capell-app/asset-test'];
+    $this->actingAsAdmin();
+    $versioned = ExtensionAssetUrl::for($manifest, 'docs/screenshot.png') ?? throw new RuntimeException('A declared screenshot must get a versioned link.');
+
+    expect($this->get($versioned)->assertOk()->headers->get('Cache-Control'))->toContain('private', 'immutable', 'max-age=31536000')->not->toContain('public')
+        ->and($this->get(extensionAssetUrl('docs/screenshot.png'))->assertOk()->headers->get('Cache-Control'))->toContain('no-store')->not->toContain('immutable');
+
+    // An upgrade rewrites the file: the old link must stop being cacheable and a new one is issued.
+    touch(extensionAssetFixturePath() . '/docs/screenshot.png', Date::now()->getTimestamp() + 60);
+
+    expect($this->get($versioned)->assertOk()->headers->get('Cache-Control'))->toContain('no-store')->not->toContain('immutable')
+        ->and(ExtensionAssetUrl::for($manifest, 'docs/screenshot.png'))->not->toBe($versioned);
+});
 
 it('serves a clean declared SVG with a sandbox policy', function (): void {
     $this->actingAsAdmin()->get(extensionAssetUrl('docs/clean.svg'))
@@ -257,7 +274,8 @@ it('links only serviceable local screenshots and preserves the marketplace fallb
     $images = BuildExtensionOperationsSummaryAction::run()->packages[$manifest->name]->imageUrls;
 
     if ($local) {
-        expect($images)->toBe([extensionAssetUrl($path)]);
+        expect($images)->toBe([ExtensionAssetUrl::for($manifest, $path)])
+            ->and($images[0])->toStartWith(extensionAssetUrl($path) . '&v=');
         $this->get($images[0])->assertOk();
     } else {
         expect($images)->toBe([MarketplaceAssetUrl::toUrl($path)]);
