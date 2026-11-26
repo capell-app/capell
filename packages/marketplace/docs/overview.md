@@ -73,7 +73,7 @@ Screenshots:
 Marketplace owns these tables:
 
 - `marketplace_instances`: connected instance identity, encrypted signing secret, connection mode, account identity, verified email time, metadata, and heartbeat time.
-- `marketplace_account_connection_sessions`: short-lived account-link sessions with hashed state/verifier values and callback status.
+- `marketplace_client_connection_sessions` (renamed from `marketplace_account_connection_sessions`, whose name the Marketplace server also uses): short-lived account-link sessions with hashed state/verifier values and callback status.
 - `marketplace_install_flow_sessions`: hosted grouped install sessions with selected packages, options, dependency snapshot, hashed return state, encrypted verifier, remote flow ID, status, expiry, and errors.
 - `marketplace_install_attempts`: append-only install ledger for eligibility, account context, authorisation, deployment handoff, Composer operation state, failure classification, retry links, output excerpts, and telemetry status. `CreateMarketplaceInstallAttemptAction` accepts `MarketplaceInstallAttemptData`; `TransitionMarketplaceInstallAttemptAction` row-locks attempts and atomically derives lifecycle timestamps, resolution/deployment attention, classification, and timeline state.
 - `marketplace_install_attempt_events`: append-only timeline events for preflight, Composer, package discovery, lifecycle work, notification, cancellation, and failure paths.
