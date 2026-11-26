@@ -18,6 +18,8 @@
 #   --minimal           Run capell:install --minimal (Core, Admin, Frontend and the default theme only).
 #   --preset NAME       Run capell:install --preset=NAME (a site type such as marketing), as a new user's first install.
 #   --publish           Run capell:install --publish, so the draft pages are live when the install ends.
+#   --released-skeleton Create the app from the newest tagged skeleton release, as `composer create-project` resolves it
+#                       for a new user today, instead of the skeleton's development branch. Catches a broken release.
 #   --keep              Keep the generated app after the run.
 #   -h, --help          Show this help.
 #
@@ -47,6 +49,7 @@ KEEP=0
 MINIMAL=0
 PRESET=""
 PUBLISH=0
+RELEASED_SKELETON=0
 # Higher than any released 1.x, so every ^1.0.x constraint in the Packagist packages accepts it.
 PATH_VERSION="1.999.0"
 
@@ -57,6 +60,7 @@ STEPS=(
     "Start php artisan serve|step_start_server"
     "GET / returns 200 and renders|step_first_page"
     "GET /admin/login returns 200|step_admin_login"
+    "The administrator signs in and the dashboard returns 200|step_admin_sign_in"
 )
 
 AUTO_WORKDIR=0
@@ -93,6 +97,10 @@ parse_args() {
                 ;;
             --publish)
                 PUBLISH=1
+                shift
+                ;;
+            --released-skeleton)
+                RELEASED_SKELETON=1
                 shift
                 ;;
             --core-path | --skeleton | --budget | --port | --workdir | --summary | --preset)
@@ -183,8 +191,15 @@ path_repository_json() {
 
 step_create_project() {
     # Scripts are deferred to the later steps so each phase is timed on its own.
+    # shellcheck disable=SC2046 # an empty stability must add no argument
     composer create-project "$SKELETON" "$APP_DIR" \
-        --stability=dev --no-install --no-scripts --no-interaction --no-progress >"$LOG_DIR/create-project.log" 2>&1
+        $(create_project_stability_args) --no-install --no-scripts --no-interaction --no-progress >"$LOG_DIR/create-project.log" 2>&1
+}
+
+# The skeleton's development branch by default; the newest tagged release with --released-skeleton.
+create_project_stability_args() {
+    ((RELEASED_SKELETON == 1)) || printf '%s' '--stability=dev'
+    return 0
 }
 
 step_install_dependencies() {
@@ -198,15 +213,18 @@ step_install_dependencies() {
 }
 
 step_install() {
-    local password
+    local password email
     password="$(openssl rand -hex 16)"
+    email="first-page-$(openssl rand -hex 4)@example.test"
+    printf '%s' "$email" >"$WORKDIR/admin.email"
+    printf '%s' "$password" >"$WORKDIR/admin.password"
     (
         cd "$APP_DIR"
         # shellcheck disable=SC2046 # an empty profile must add no argument
         php artisan capell:install --no-interaction $(install_profile_args) \
             --url="http://127.0.0.1:$PORT" \
             --name="First Page Check" \
-            --email="first-page-$(openssl rand -hex 4)@example.test" \
+            --email="$email" \
             --password="$password" >"$LOG_DIR/install.log" 2>&1
     )
 }
@@ -260,6 +278,46 @@ step_admin_login() {
     status="$(curl -s -o "$LOG_DIR/admin-login.html" -w '%{http_code}' --max-time 60 "http://127.0.0.1:$PORT/admin/login")"
     printf 'status=%s\n' "$status" >"$LOG_DIR/admin-login.log"
     [[ "$status" == "200" ]]
+}
+
+# Signs the installer's administrator in inside the application, which fires the login events the
+# way a browser sign-in does (a listener that writes to a missing table fails here), then asks for
+# the dashboard as that user.
+step_admin_sign_in() {
+    cat >"$LOG_DIR/sign-in.php" <<'PHP'
+<?php
+declare(strict_types=1);
+
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+require getcwd() . '/vendor/autoload.php';
+$app = require getcwd() . '/bootstrap/app.php';
+$kernel = $app->make(Kernel::class);
+$request = Request::create('/admin', 'GET');
+// Some providers resolve the request while booting, so it must be bound first.
+$app->instance('request', $request);
+
+try {
+    $kernel->bootstrap();
+    $model = config('auth.providers.users.model');
+    $user = $model::query()->where('email', getenv('ADMIN_EMAIL'))->firstOrFail();
+    Auth::guard('web')->login($user);
+    $status = $kernel->handle($request)->getStatusCode();
+} catch (Throwable $e) {
+    fwrite(STDERR, 'sign-in failed: ' . $e::class . ': ' . $e->getMessage() . PHP_EOL);
+    exit 1;
+}
+
+echo 'dashboard status=' . $status . PHP_EOL;
+if ($status !== 200) {
+    exit 1;
+}
+PHP
+    (cd "$APP_DIR" && ADMIN_EMAIL="$(cat "$WORKDIR/admin.email")" php "$LOG_DIR/sign-in.php") >"$LOG_DIR/admin-sign-in.log" 2>&1 || return 1
+    # Laravel reports a bootstrap exception and may still exit 0, so the success line is the proof.
+    grep -qx 'dashboard status=200' "$LOG_DIR/admin-sign-in.log"
 }
 
 write_summary() { # result line

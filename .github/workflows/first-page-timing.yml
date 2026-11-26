@@ -56,6 +56,10 @@ jobs:
       - name: Time a new user's marketing install to a published site and its admin sign-in page
         # A hang ceiling of ten minutes, the target for a new user from create-project to a first page.
         run: bash scripts/first-page-timing.sh --preset marketing --publish --budget 600 --workdir "$RUNNER_TEMP/first-page-marketing" --port 8001
+      - name: Time the install from the newest released skeleton, as create-project resolves it today
+        # Catches a broken skeleton release, which the development-branch runs above cannot see.
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: bash scripts/first-page-timing.sh --released-skeleton --preset marketing --publish --budget 600 --workdir "$RUNNER_TEMP/first-page-released" --port 8002
       - name: Upload logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -64,4 +68,5 @@ jobs:
           path: |
             ${{ runner.temp }}/first-page/logs
             ${{ runner.temp }}/first-page-marketing/logs
+            ${{ runner.temp }}/first-page-released/logs
           if-no-files-found: ignore
