@@ -211,6 +211,7 @@ class PluginPackagesFetcher
             'themeKey' => $manifest['theme']['key'] ?? $manifest['themeKey'] ?? null,
             'extendsPackage' => $manifest['theme']['extends'] ?? $manifest['extends'] ?? null,
             'visibility' => $manifest['visibility'] ?? 'catalogue',
+            'launchStatus' => $manifest['launchStatus'] ?? 'shipped',
             'defaultSelected' => $manifest['defaultSelected'] ?? false,
             'roles' => is_array($manifest['roles'] ?? null) ? $manifest['roles'] : [],
             'rolePriority' => is_int($manifest['rolePriority'] ?? null) ? $manifest['rolePriority'] : null,
