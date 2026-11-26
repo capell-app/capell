@@ -15,6 +15,7 @@ use Capell\Core\ThemeStudio\Contracts\ThemeRuntimeSettings;
 use Capell\Frontend\Actions\AssertPublicRenderContractAction;
 use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
+use Capell\Frontend\Actions\ResolveLayoutFileAction;
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Capell\Frontend\Contracts\FrontendResourcePlanRenderer;
 use Capell\Frontend\Contracts\FrontendResponseRenderer;
@@ -91,7 +92,7 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
             ])->render();
 
             return response()->view(
-                $this->layoutFile($context->layout),
+                ResolveLayoutFileAction::run($context->layout),
                 [
                     'componentName' => 'capell.frontend.page',
                     'language' => $context->language,
@@ -113,13 +114,6 @@ final class BladeFrontendResponseRenderer implements FrontendResponseRenderer
         AssertPublicRenderContractAction::run($response);
 
         return $response;
-    }
-
-    private function layoutFile(?Layout $layout): string
-    {
-        $view = $layout?->meta['layout_file'] ?? null;
-
-        return is_string($view) && $view !== '' ? $view : config('capell-frontend.layout_file', 'capell::app');
     }
 
     private function masterFile(?Layout $layout): string

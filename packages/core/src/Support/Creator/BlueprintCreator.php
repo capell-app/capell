@@ -8,6 +8,7 @@ use Capell\Core\Contracts\ModelInterceptors\BlueprintInterceptorInterface;
 use Capell\Core\Data\BlueprintSubjectDescriptorData;
 use Capell\Core\Enums\BlueprintGroupEnum;
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Enums\CacheTime;
 use Capell\Core\Enums\PageTypeEnum;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Blueprint;
@@ -245,6 +246,54 @@ final class BlueprintCreator
             fn (array $data): array => CapellCore::mergeModelInterceptorData($defaults, $data),
             BlueprintInterceptorInterface::class,
         );
+    }
+
+    /**
+     * A page type whose pages are the shell a host route renders inside the theme
+     * (an account area, a portal). Its pages carry per-user output, so the type is
+     * never cached, never listed and never given critical CSS, whatever an
+     * interceptor or an earlier edit set.
+     *
+     * @experimental
+     */
+    public function applicationPageType(string $key, string $name): Blueprint
+    {
+        $defaults = [
+            'key' => $key,
+            'type' => BlueprintSubjectEnum::Page,
+            'name' => $name,
+            'group' => BlueprintGroupEnum::System->value,
+            'meta' => [
+                'deletable' => false,
+                'exclude_parent' => true,
+            ],
+        ];
+
+        return CapellCore::createOrUpdateModel(
+            $this->typeModel,
+            ['key' => $key, 'type' => BlueprintSubjectEnum::Page],
+            fn (array $data): array => $this->forceApplicationPageMeta(CapellCore::mergeModelInterceptorData($defaults, $data)),
+            BlueprintInterceptorInterface::class,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function forceApplicationPageMeta(array $data): array
+    {
+        $meta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
+
+        $data['meta'] = [
+            ...$meta,
+            'cache_time' => CacheTime::Never->value,
+            'listable' => false,
+            'sitemap' => false,
+            'critical_css' => false,
+        ];
+
+        return $data;
     }
 
     private function createGenericType(BlueprintSubjectDescriptorData $subject): Blueprint

@@ -6,6 +6,8 @@ return [
     'frontend_unavailable' => 'Frontend unavailable',
     'renderer_unavailable' => 'The :runtime frontend renderer is not available.',
     'theme_unavailable' => 'The selected theme is not available.',
+    'application_page_missing' => 'This area needs a published page of type ":type" for this site and language. Create and publish one in the admin, then reload.',
+    'application_page_cacheable' => 'The ":type" page type is set to be cached, so signed-in pages cannot render inside it. Set its cache time to Never in the admin.',
 
     'default_headline' => 'Something went wrong',
     'default_description' => 'Try again later.',

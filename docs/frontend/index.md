@@ -22,6 +22,7 @@ Use this section if you build or test the public site with Blade, Livewire, or I
 | Build with Inertia                   | [Capell Inertia runtime](../getting-started/inertia-runtime.md)        |
 | Add interactive widgets or fragments | [Capell Interactions](../getting-started/capell-interactions.md)       |
 | Register render hooks                | [Render hooks](../../packages/frontend/docs/extending-render-hooks.md) |
+| Render host routes inside the theme  | [Application pages](application-pages.md)                              |
 | Register package Tailwind assets     | [Tailwind assets](../../packages/frontend/docs/tailwind-assets.md)     |
 | Enable Blaze safely                  | [Blaze support](blaze-support.md)                                      |
 | Find optional frontend packages      | [Packages and extensions](../packages/catalog.md)                      |

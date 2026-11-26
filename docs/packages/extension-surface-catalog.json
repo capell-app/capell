@@ -1737,6 +1737,16 @@
             "contractTestId": null
         },
         {
+            "id": "frontend.contract.application-navigation-resolver",
+            "kind": "contract",
+            "identifier": "Capell\\Frontend\\Contracts\\ApplicationNavigationResolver",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Hydrated navigation shown around an application area.",
+            "contractTestId": null
+        },
+        {
             "id": "frontend.contract.component-contributor",
             "kind": "contract",
             "identifier": "Capell\\Frontend\\Contracts\\FrontendComponentContributor",
@@ -1764,6 +1774,36 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Typed widget resource usage contribution boundary.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.application-area",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\ApplicationAreaData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "An application area key and its shell page type.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.application-navigation-item",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\ApplicationNavigationItemData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "One hydrated application navigation link.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.dto.application-page",
+            "kind": "dto",
+            "identifier": "Capell\\Frontend\\Data\\ApplicationPageData",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Hydrated render data for a host route rendered inside the theme.",
             "contractTestId": null
         },
         {
@@ -1854,6 +1894,26 @@
             "stability": "experimental",
             "introducedVersion": "1.0.0",
             "summary": "Supported frontend package dependency installation types.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.middleware.application-page-context",
+            "kind": "middleware",
+            "identifier": "frontend.application",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Route middleware that renders a host route inside the theme, privately.",
+            "contractTestId": null
+        },
+        {
+            "id": "frontend.registry.application-area",
+            "kind": "registry",
+            "identifier": "Capell\\Frontend\\Support\\Application\\ApplicationAreaRegistry",
+            "ownerPackage": "capell-app/frontend",
+            "stability": "experimental",
+            "introducedVersion": "1.0.0",
+            "summary": "Host application areas rendered inside the theme.",
             "contractTestId": null
         },
         {
