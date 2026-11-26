@@ -57,13 +57,11 @@
                         <span
                             class="mt-1 block text-sm text-gray-600 dark:text-gray-300"
                         >
-                            {{ trans_choice(
-                                $setsDefault
-                                    ? 'capell-marketplace::marketplace.theme_extension.scope_all_description'
-                                    : 'capell-marketplace::marketplace.theme_extension.scope_all_description_scoped',
-                                $sites->count(),
-                                ['count' => $sites->count()],
-                            ) }}
+                            @if ($setsDefault)
+                                {{ trans_choice('capell-marketplace::marketplace.theme_extension.scope_all_description', $sites->count(), ['count' => $sites->count()]) }}
+                            @else
+                                {{ trans_choice('capell-marketplace::marketplace.theme_extension.scope_all_description_scoped', $sites->count(), ['count' => $sites->count()]) }}
+                            @endif
                         </span>
                     </span>
                 </label>
