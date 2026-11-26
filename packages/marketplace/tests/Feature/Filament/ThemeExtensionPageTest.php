@@ -16,6 +16,7 @@ use Capell\Tests\Fixtures\Models\User;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Event;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -231,3 +232,64 @@ it('denies direct marketplace theme writes without an actor', function (): void 
 
     ApplyMarketplaceThemeToSitesAction::run('guest-theme', 'Guest Theme');
 })->throws(AuthorizationException::class);
+
+it('shows a global administrator which sites use the theme and that all sites changes the default', function (): void {
+    registerThemeExtensionManifest('lighthouse', 'Lighthouse');
+    $theme = Theme::factory()->create(['key' => 'lighthouse', 'name' => 'Lighthouse']);
+    $using = Site::factory()->theme($theme)->create(['name' => 'Using Site']);
+    Site::factory()->create(['name' => 'Other Site']);
+
+    Livewire::test(ThemeExtensionPage::class, ['themeKey' => 'lighthouse'])
+        ->assertSee('make this the default theme')
+        ->assertSee('1 of 2 sites uses Lighthouse.')
+        ->assertSeeHtml('data-capell-theme-site="' . $using->getKey() . '"')
+        ->assertSeeHtml('data-capell-theme-site-active')
+        ->assertDontSeeHtml('id="theme-extension-site"')
+        ->set('scope', 'site')
+        ->assertSeeHtml('id="theme-extension-site"');
+});
+
+it('tells a site-scoped administrator that applying to all sites keeps the default theme', function (): void {
+    registerThemeExtensionManifest('scoped-copy', 'Scoped Copy');
+    $defaultTheme = Theme::factory()->create(['default' => true]);
+    $otherTheme = Theme::factory()->create(['default' => false]);
+    $assigned = Site::factory()->theme($defaultTheme)->create();
+    $unmanaged = Site::factory()->theme($otherTheme)->create();
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect([(int) $assigned->getKey()]);
+    $actor->givePermissionTo('View:ThemeExtensionPage', ExtensionsPage::MANAGE_PERMISSION);
+
+    test()->actingAs($actor);
+
+    Livewire::test(ThemeExtensionPage::class, ['themeKey' => 'scoped-copy'])
+        ->assertSee('The default theme stays as it is.')
+        ->assertDontSee('make this the default theme')
+        ->call('applyTheme')
+        ->assertNotified('Theme applied to your sites');
+
+    $applied = Theme::query()->where('key', 'scoped-copy')->firstOrFail();
+
+    expect($assigned->refresh()->theme_id)->toBe($applied->getKey())
+        ->and($unmanaged->refresh()->theme_id)->toBe($otherTheme->getKey())
+        ->and($defaultTheme->refresh()->default)->toBeTrue()
+        ->and($otherTheme->refresh()->default)->toBeFalse()
+        ->and($applied->default)->toBeFalse();
+});
+
+it('warns a site-scoped administrator with no sites instead of failing when they apply to all sites', function (): void {
+    registerThemeExtensionManifest('no-sites', 'No Sites');
+    Site::factory()->create();
+    $actor = User::factory()->create();
+    $actor->assignedSiteIds = collect();
+    $actor->givePermissionTo('View:ThemeExtensionPage', ExtensionsPage::MANAGE_PERMISSION);
+
+    test()->actingAs($actor);
+
+    Livewire::test(ThemeExtensionPage::class, ['themeKey' => 'no-sites'])
+        ->call('applyTheme')
+        ->assertNotified(__('capell-marketplace::marketplace.theme_extension.no_sites_to_change'))
+        ->assertSee('You have no sites to change.')
+        ->assertSeeHtml('data-capell-theme-apply-disabled');
+
+    expect(Theme::query()->where('key', 'no-sites')->exists())->toBeFalse();
+});

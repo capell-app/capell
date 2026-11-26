@@ -2253,3 +2253,15 @@ it('gives relevant recovery advice for blocked extension causes', function (stri
     'Composer version mismatch' => ['version_mismatch', 'Check the Composer installation'],
     'unknown cause' => ['unexpected_failure', 'Contact the extension&#039;s publisher'],
 ]);
+
+it('explains each extension stat count and links the installed tile to its filtered list', function (): void {
+    grantExtensionsPageAccess();
+
+    Livewire::test(ExtensionStatsOverviewFilamentWidget::class)
+        ->assertSuccessful()
+        ->assertSee(trans_choice('capell-admin::generic.extension_stats.needs_attention', 0))
+        ->assertSee(trans_choice('capell-admin::generic.extension_stats.updates', 0))
+        ->assertSee(trans_choice('capell-admin::generic.extension_stats.blocked', 0))
+        ->assertSeeHtml(e(ExtensionsPage::getUrl(['installed-extensionsFilters' => ['installed_status' => ['value' => '1']]])))
+        ->assertSeeHtml(e(ExtensionsPage::getUrl(['installed-extensionsFilters' => ['installed_status' => ['value' => '0']]])));
+});

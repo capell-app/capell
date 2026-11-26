@@ -74,8 +74,44 @@ final class ThemeExtensionPage extends Page
         ]);
     }
 
+    #[Override]
+    public function getSubheading(): ?string
+    {
+        $manifest = $this->manifest();
+
+        return $manifest?->marketplaceSummary ?? $manifest?->description;
+    }
+
+    /**
+     * Applying to all sites only replaces the default theme for global
+     * administrators; site-scoped administrators change their own sites.
+     */
+    public function appliesDefaultTheme(): bool
+    {
+        return SiteAccess::current()->isGlobal();
+    }
+
+    /**
+     * A site-scoped administrator without any sites has nothing to apply the
+     * theme to, and may not change the default theme either.
+     */
+    public function hasNoSitesToChange(): bool
+    {
+        return ! $this->appliesDefaultTheme() && $this->sites()->isEmpty();
+    }
+
     public function applyTheme(): void
     {
+        if ($this->hasNoSitesToChange()) {
+            Notification::make()
+                ->title(__('capell-marketplace::marketplace.theme_extension.no_sites_to_change'))
+                ->body(__('capell-marketplace::marketplace.theme_extension.no_sites_to_change_body'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         $siteId = $this->selectedSiteIdForApply();
         $siteName = $siteId === null
             ? null
@@ -98,18 +134,27 @@ final class ThemeExtensionPage extends Page
 
         $this->dispatch('$refresh');
 
-        Notification::make()
-            ->title($siteId === null
+        $appliesDefault = $this->appliesDefaultTheme();
+        $themeName = $this->themeName();
+
+        if ($siteId === null) {
+            $title = $appliesDefault
                 ? __('capell-marketplace::marketplace.theme_extension.applied_all')
-                : __('capell-marketplace::marketplace.theme_extension.applied_site'))
-            ->body($siteId === null
-                ? __('capell-marketplace::marketplace.theme_extension.applied_all_body', [
-                    'theme' => $this->themeName(),
-                ])
-                : __('capell-marketplace::marketplace.theme_extension.applied_site_body', [
-                    'theme' => $this->themeName(),
-                    'site' => is_string($siteName) && $siteName !== '' ? $siteName : (string) $siteId,
-                ]))
+                : __('capell-marketplace::marketplace.theme_extension.applied_all_scoped');
+            $body = $appliesDefault
+                ? __('capell-marketplace::marketplace.theme_extension.applied_all_body', ['theme' => $themeName])
+                : __('capell-marketplace::marketplace.theme_extension.applied_all_scoped_body', ['theme' => $themeName]);
+        } else {
+            $title = __('capell-marketplace::marketplace.theme_extension.applied_site');
+            $body = __('capell-marketplace::marketplace.theme_extension.applied_site_body', [
+                'theme' => $themeName,
+                'site' => is_string($siteName) && $siteName !== '' ? $siteName : (string) $siteId,
+            ]);
+        }
+
+        Notification::make()
+            ->title($title)
+            ->body($body)
             ->success()
             ->send();
     }

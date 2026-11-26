@@ -22,6 +22,7 @@ use Workbench\App\Support\CustomPageFieldsFixture;
 use Workbench\App\Support\MarketplaceFixture;
 use Workbench\App\Support\ScreenshotTranslationTabs;
 use Workbench\App\Support\SiteAdminMetricsScreenshotFixture;
+use Workbench\App\Support\ThemeExtensionScreenshotFixture;
 
 final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
 {
@@ -123,6 +124,8 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
         if (is_string($database) && $database !== '') {
             resolve(MetricCollectorRegistry::class)
                 ->register(SiteAdminMetricsScreenshotFixture::class);
+
+            $this->app->booted(ThemeExtensionScreenshotFixture::register(...));
         }
     }
 
