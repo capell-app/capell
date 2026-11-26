@@ -8,5 +8,11 @@
         "failed_jobs": "Failed jobs may be retried or pruned."
     },
     "columns": {},
+    "renamed_tables": {
+        "marketplace_account_connection_sessions": {
+            "to": "marketplace_client_connection_sessions",
+            "reason": "The Marketplace client moved off the table name the Marketplace server also uses; its rows move with the rename."
+        }
+    },
     "pages": {}
 }
