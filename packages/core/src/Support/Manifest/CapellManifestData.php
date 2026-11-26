@@ -98,7 +98,7 @@ final class CapellManifestData
         public int $rolePriority = 0,
         public array $installTips = [],
         public array $legacyTables = [],
-        public ?string $launchStatus = null,
+        public string $launchStatus = 'shipped',
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -193,7 +193,7 @@ final class CapellManifestData
                 ExtensionLegacyTableData::fromArray(...),
                 self::arrayList(is_array($data['install'] ?? null) ? ($data['install']['legacyTables'] ?? null) : null),
             ),
-            launchStatus: self::stringValue($data['launchStatus'] ?? null),
+            launchStatus: self::launchStatus($data['launchStatus'] ?? null),
         );
     }
 
@@ -328,7 +328,7 @@ final class CapellManifestData
             $data['documentationUrl'] = $this->documentationUrl;
         }
 
-        if ($this->launchStatus !== null) {
+        if ($this->launchStatus !== 'shipped') {
             $data['launchStatus'] = $this->launchStatus;
         }
 
@@ -485,6 +485,17 @@ final class CapellManifestData
         }
 
         return $roles;
+    }
+
+    /**
+     * An absent or unknown launch status reads as shipped, as an absent visibility reads as catalogue.
+     */
+    private static function launchStatus(mixed $value): string
+    {
+        return match ($value) {
+            'preview', 'hidden' => $value,
+            default => 'shipped',
+        };
     }
 
     private static function stringValue(mixed $value): ?string

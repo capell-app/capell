@@ -77,6 +77,7 @@
         "launchStatus": {
             "type": "string",
             "enum": ["shipped", "preview", "hidden"],
+            "default": "shipped",
             "description": "Launch status: shipped packages are released, preview packages are listed with a Preview badge, hidden packages stay off every public listing."
         },
         "namespace": {
