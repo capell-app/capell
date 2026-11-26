@@ -270,7 +270,9 @@ explain_server() {
     tail -n 15 "$LOG_DIR/serve.log" 2>/dev/null || true
     echo "-- the host --"
     { free -m || vm_stat; } 2>/dev/null | head -n 4 || true
-    { dmesg 2>/dev/null | tail -n 5; } || true
+    { grep -m1 'model name' /proc/cpuinfo; nproc; php -v | head -n 1; } 2>/dev/null || true
+    # Runners allow sudo without a password; a local machine that does not simply prints nothing.
+    { sudo -n dmesg 2>/dev/null || dmesg 2>/dev/null; } | tail -n 8 || true
 }
 
 start_server() {
