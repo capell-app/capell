@@ -237,6 +237,13 @@ return [
     'extension_operations_tab_premium' => 'Premium',
     'extension_operations_tab_uninstalled' => 'Uninstalled',
     'extension_operations_tab_updates' => 'Updates',
+    'extension_stats' => [
+        'installed' => '{0} No extensions installed yet|{1} :count extension running on this site|[2,*] :count extensions running on this site',
+        'uninstalled' => '{0} Nothing removed|{1} :count extension can be reinstalled|[2,*] :count extensions can be reinstalled',
+        'needs_attention' => '{0} Nothing needs attention|{1} :count extension needs attention|[2,*] :count extensions need attention',
+        'updates' => '{0} Everything is up to date|{1} :count update ready to review|[2,*] :count updates ready to review',
+        'blocked' => '{0} Nothing is blocked|{1} :count extension is blocked|[2,*] :count extensions are blocked',
+    ],
     'extension_version_available' => ':version available',
     'extra_content' => 'Extra content',
     'extra_large' => 'Extra large',
