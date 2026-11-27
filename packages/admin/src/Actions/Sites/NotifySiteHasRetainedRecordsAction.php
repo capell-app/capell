@@ -24,9 +24,9 @@ final class NotifySiteHasRetainedRecordsAction
         Notification::make('site_has_retained_records')
             ->danger()
             ->title(__('capell-admin::message.site_force_delete_retained_title'))
-            ->body(__($bulk
-                ? 'capell-admin::message.site_force_delete_retained_bulk_body'
-                : 'capell-admin::message.site_force_delete_retained_body', ['reason' => $exception->getMessage()]))
+            ->body($bulk
+                ? __('capell-admin::message.site_force_delete_retained_bulk_body', ['reason' => $exception->getMessage()])
+                : __('capell-admin::message.site_force_delete_retained_body', ['reason' => $exception->getMessage()]))
             ->persistent()
             ->send();
     }
