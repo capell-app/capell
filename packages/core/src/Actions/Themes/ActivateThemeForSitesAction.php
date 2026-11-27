@@ -31,7 +31,9 @@ final class ActivateThemeForSitesAction
     public function handle(string $themeKey, string $themeName, array $siteIds, bool $makeDefault, ?bool $default = null): Theme
     {
         return DB::transaction(function () use ($themeKey, $themeName, $siteIds, $makeDefault, $default): Theme {
-            $theme = CreateThemeAction::run(
+            // An existing theme keeps its colours and header/footer settings, which other sites share;
+            // only a theme with no record yet gets the defaults.
+            $theme = Theme::query()->where('key', $themeKey)->first() ?? CreateThemeAction::run(
                 key: $themeKey,
                 name: $themeName,
                 defaultColors: true,

@@ -64,6 +64,18 @@ it('creates a layout with the containers of an existing layout', function (): vo
         ->and($layout->containers)->toBe($containers);
 });
 
+it('copies the areas but not the widget placements of a populated layout', function (): void {
+    $containers = [['key' => 'header', 'widgets' => [['id' => 7, 'key' => 'hero']]], ['key' => 'main', 'widgets' => [['id' => 8, 'key' => 'text']]]];
+    $source = Layout::factory()->create(['key' => 'standard', 'containers' => $containers]);
+
+    artisanCommand('capell:make:layout', ['key' => 'two-column', '--from' => 'standard'])
+        ->assertExitCode(Command::SUCCESS);
+
+    expect(Layout::query()->where('key', 'two-column')->sole()->containers)
+        ->toBe([['key' => 'header', 'widgets' => []], ['key' => 'main', 'widgets' => []]])
+        ->and($source->refresh()->containers)->toBe($containers);
+});
+
 it('refuses a layout copied from a layout that does not exist', function (): void {
     artisanCommand('capell:make:layout', ['key' => 'two-column', '--from' => 'missing'])
         ->expectsOutputToContain('No layout has the key [missing]')
@@ -82,6 +94,19 @@ it('activates an installed theme for the only site', function (): void {
 
     expect($site->refresh()->theme_id)->toBe($theme->getKey())
         ->and($theme->refresh()->status)->toBeTrue();
+});
+
+it('keeps the colours and header settings of a theme that already exists', function (): void {
+    Site::factory()->default()->create();
+    $theme = Theme::factory()->create(['key' => 'aurora', 'name' => 'Aurora']);
+    $meta = $theme->meta ?? [];
+    $meta['colors'] = ['primary' => '#112233'];
+    $theme->forceFill(['meta' => $meta])->save();
+    $before = $theme->refresh()->meta;
+
+    artisanCommand('capell:theme:activate', ['theme' => 'aurora'])->assertExitCode(Command::SUCCESS);
+
+    expect($theme->refresh()->meta)->toBe($before);
 });
 
 it('asks which site to switch when there is more than one', function (): void {

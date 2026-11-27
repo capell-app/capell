@@ -47,7 +47,11 @@ final class CreateLayoutAction
             'key' => $key,
             'name' => $name,
             'group' => $source instanceof Layout ? ($source->group ?? LayoutGroupEnum::Default->value) : LayoutGroupEnum::Default->value,
-            'containers' => $source?->containers,
+            // Keep the areas but not the widget placements, which belong to the source layout.
+            'containers' => $source instanceof Layout ? array_map(
+                fn (array $container): array => array_merge($container, ['widgets' => []]),
+                $source->containers ?? [],
+            ) : null,
             'theme_id' => $source?->theme_id,
             'site_id' => $source?->site_id,
             'default' => false,
