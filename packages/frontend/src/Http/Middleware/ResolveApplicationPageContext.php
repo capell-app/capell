@@ -136,7 +136,7 @@ final class ResolveApplicationPageContext
         $language = $this->state->language();
 
         if (! $page instanceof Pageable || ! $site instanceof Site || ! $language instanceof Language) {
-            return $this->unavailable('application_page_missing', $area);
+            return $this->unavailable(__('capell-frontend::errors.application_page_missing', ['type' => $area->pageType]));
         }
 
         if (PageCachePolicy::shouldCache($page) || ! PageCachePolicy::neverCached($page)) {
@@ -145,7 +145,7 @@ final class ResolveApplicationPageContext
                 'type' => $area->pageType,
             ]);
 
-            return $this->unavailable('application_page_cacheable', $area, $language);
+            return $this->unavailable(__('capell-frontend::errors.application_page_cacheable', ['type' => $area->pageType]), $language);
         }
 
         $applicationPage = new ApplicationPageData(
@@ -172,7 +172,7 @@ final class ResolveApplicationPageContext
         $status = $result->error?->status ?? Response::HTTP_INTERNAL_SERVER_ERROR;
 
         if ($status === ApplicationPageResolveStep::MISSING_PAGE_STATUS) {
-            return $this->unavailable('application_page_missing', $area, $this->state->language());
+            return $this->unavailable(__('capell-frontend::errors.application_page_missing', ['type' => $area->pageType]), $this->state->language());
         }
 
         throw_if($status === Response::HTTP_NOT_FOUND, NotFoundHttpException::class, $result->error?->message);
@@ -180,12 +180,9 @@ final class ResolveApplicationPageContext
         throw new HttpException($status, $result->error?->message);
     }
 
-    private function unavailable(string $key, ApplicationAreaData $area, ?Language $language = null): Response
+    private function unavailable(mixed $message, ?Language $language = null): Response
     {
-        return RenderFrontendUnavailableResponseAction::run(
-            (string) __('capell-frontend::errors.' . $key, ['type' => $area->pageType]),
-            $language,
-        );
+        return RenderFrontendUnavailableResponseAction::run(is_string($message) ? $message : '', $language);
     }
 
     private function privateResponse(Response $response): Response

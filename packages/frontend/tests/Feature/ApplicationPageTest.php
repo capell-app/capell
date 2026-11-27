@@ -85,8 +85,10 @@ it('renders the host route inside the theme layout file as the signed-in user', 
         ->assertHeader('X-Robots-Tag', 'noindex,nofollow');
 
     expect($response->headers->get('Cache-Control'))->toContain('no-store')->toContain('private')
-        ->and($response->headers->get('Vary'))->toContain('Cookie')
-        ->and(fn () => AssertPublicHtmlContainsNoAuthoringSurfaceAction::run($response->baseResponse))->not->toThrow(Throwable::class);
+        ->and($response->headers->get('Vary'))->toContain('Cookie');
+
+    // Throws, failing the test, when the HTML carries an authoring marker or editor script.
+    AssertPublicHtmlContainsNoAuthoringSurfaceAction::run($response->baseResponse);
 });
 
 it('marks the request as private for the HTML cache', function (): void {

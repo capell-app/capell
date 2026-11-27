@@ -4,33 +4,35 @@ declare(strict_types=1);
 
 namespace Capell\Frontend\Support\Application;
 
+use Capell\Core\Support\Registries\AbstractKeyedRegistry;
 use Capell\Frontend\Data\ApplicationAreaData;
 
 /**
  * The application areas a host or package declares, keyed by area key.
  *
  * @experimental
+ *
+ * @extends AbstractKeyedRegistry<ApplicationAreaData>
  */
-final class ApplicationAreaRegistry
+final class ApplicationAreaRegistry extends AbstractKeyedRegistry
 {
-    /** @var array<string, ApplicationAreaData> */
-    private array $areas = [];
-
     public function register(ApplicationAreaData $area): self
     {
-        $this->areas[$area->key] = $area;
+        $this->setItem($area->key, $area);
 
         return $this;
     }
 
     public function get(string $key): ?ApplicationAreaData
     {
-        return $this->areas[$key] ?? null;
+        $area = $this->hasItem($key) ? $this->getItem($key) : null;
+
+        return $area instanceof ApplicationAreaData ? $area : null;
     }
 
     /** @return array<string, ApplicationAreaData> */
     public function all(): array
     {
-        return $this->areas;
+        return $this->allItems();
     }
 }
