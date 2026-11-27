@@ -17,6 +17,7 @@ use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
 use Capell\Core\Console\Commands\AdoptTableCommand;
+use Capell\Core\Console\Commands\AgentDoctorCommand;
 use Capell\Core\Console\Commands\AgentSchemaVerifyCommand;
 use Capell\Core\Console\Commands\AuditSiteDomainOriginsCommand;
 use Capell\Core\Console\Commands\AuditStoredMediaUploadsCommand;
@@ -460,6 +461,7 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
         Event::listen(CommandFinished::class, RebuildPackageCacheAfterPackageDiscovery::class);
 
         $package->hasCommands([
+            AgentDoctorCommand::class,
             AgentSchemaVerifyCommand::class,
             AuditSiteDomainOriginsCommand::class,
             CacheComponentsCommand::class,

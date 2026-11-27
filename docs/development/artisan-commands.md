@@ -538,6 +538,22 @@ Four of those relate directly to hosting:
 
 `core.cache.shared-store` is a warning by design: single-node installs on the file driver are fully supported. See [web server configuration](../operations/web-server.md#multiple-nodes). `core.hosting.platform` is also a warning, because each hazard stops background work rather than page rendering. See [Deploy on Laravel Cloud](../operations/deploy-on-laravel-cloud.md).
 
+### `capell:agent:doctor`
+
+Orients an AI agent (or a person new to the site) in one call. It reports the
+installed Capell packages, registered themes and whether each has a theme record,
+page types, widgets and blocks that packages contributed, every maker with the
+command that previews it, and whether Agent Bridge and `laravel/mcp` are ready.
+When MCP is not ready, `mcp.nextStep` holds the command to run.
+
+```bash
+php artisan capell:agent:doctor
+php artisan capell:agent:doctor --json
+```
+
+The JSON report carries `"capell-agent-doctor": 1` so a script can check the
+format before reading it.
+
 ### `capell:health`
 
 Runs read-only operational checks with deterministic grouped output and a non-zero exit code for warnings, failures, exceptions, or timeouts. Use `--json` for monitoring and scheduled execution. Each check runs in an isolated subprocess, so a timed-out check cannot prevent later checks from reporting.
