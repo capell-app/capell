@@ -54,6 +54,8 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
             // answers this origin in-process, so no request leaves the machine.
             'capell-marketplace.marketplace.base_url' => 'https://marketplace.capell.example/api/v1',
             'capell-marketplace.marketplace.web_url' => $localOrigin,
+            // Off by default; the guide shows the page a site gets when it turns the option on.
+            'capell-admin.login_links.email_requests' => true,
         ]);
     }
 

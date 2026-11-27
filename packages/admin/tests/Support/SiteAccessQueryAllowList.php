@@ -6,6 +6,7 @@ namespace Capell\Admin\Tests\Support;
 
 use BezhanSalleh\FilamentShield\Support\Utils;
 use Capell\Admin\Facades\CapellAdmin;
+use Capell\Admin\Support\Auth\AdminLoginLinks;
 use Capell\Core\Actions\Upgrade\ResolveInstalledComposerVersionsAction;
 use Capell\Core\Enums\ExtensionHealthAlertSeverity;
 use Capell\Core\Enums\UrlTypeEnum;
@@ -120,6 +121,9 @@ final class SiteAccessQueryAllowList
             // Email addresses identify one account across every site, so the invitation
             // duplicate check must see every user.
             'packages/admin/src/Actions/Users/InviteUserAction.php' => ['emailIsTaken|$userModel::query()->whereRaw(\'LOWER(email) = ?\', [mb_strtolower(trim($email))])->exists()'],
+            // Sign-in link tokens belong to an account, not to a site.
+            'packages/admin/src/Actions/Auth/IssueAdminLoginLinkAction.php' => ['handle|' . DB::class . '::table(' . AdminLoginLinks::class . '::table())->upsert([[\'user_id\' => $userId, \'token_hash\' => ' . AdminLoginLinks::class . '::hashToken($token), \'password_fingerprint\' => ' . AdminLoginLinks::class . '::passwordFingerprint($user), \'expires_at\' => $expiresAt, \'created_at\' => now()]], [\'user_id\'], [\'token_hash\', \'password_fingerprint\', \'expires_at\', \'created_at\'])'],
+            'packages/admin/src/Actions/Auth/RedeemAdminLoginLinkAction.php' => ['handle|' . DB::class . '::table(' . AdminLoginLinks::class . '::table())', 'forget|' . DB::class . '::table(' . AdminLoginLinks::class . '::table())->where(\'user_id\', $userId)->where(\'token_hash\', $tokenHash)->delete()'],
             // Invitation tokens belong to an account, not to a site.
             'packages/admin/src/Support/Users/InvitationPasswordBroker.php' => ['hasPendingInvitation|' . DB::class . '::table(self::table())->where(\'email\', $user->getEmailForPasswordReset())->exists()', 'revoke|' . DB::class . '::table($table)->where(\'email\', $user->getEmailForPasswordReset())->delete()'],
             'packages/admin/src/Actions/Users/ResolveAdminLocaleForUserAction.php' => ['handle|$user->newQuery()->whereKey($user->getKey())->value(\'preferred_admin_language_id\')'],

@@ -2,7 +2,7 @@
 
 Voyager Importer (`capell-app/voyager-importer`) moves a Voyager site into Capell. It reads Voyager's tables over a Laravel database connection and never loads Voyager classes, so the host can be on a Laravel version Voyager does not support. Execution runs inside Migration Assistant (`capell-app/migration-assistant`), which records the session, result report and rollback report.
 
-The commands below exist only when both packages are installed. Confirm with `php artisan list voyager-importer`. The package docs hold the full runbook: `packages/voyager-importer/docs/migration-guide.md` in the packages repository.
+The commands below exist only when both packages are installed. Confirm with `php artisan list voyager-importer`. The package docs hold the full runbook: `vendor/capell-app/voyager-importer/docs/migration-guide.md`.
 
 ## Contents
 
@@ -56,4 +56,4 @@ php artisan voyager-importer:make-resource <data_type>
 
 ## Keeping this file current
 
-Refresh this reference whenever the importer's command signatures or entity list change. Check it against `packages/voyager-importer/src/Console/*Command.php` and `php artisan list voyager-importer`.
+Refresh this reference whenever the importer's command signatures or entity list change. Check it against `vendor/capell-app/voyager-importer/src/Console/*Command.php` and `php artisan list voyager-importer`.

@@ -1081,6 +1081,44 @@
         },
         {
             "package": "documentation",
+            "surface": "frontend",
+            "targetType": "frontend-url",
+            "target": null,
+            "scenario": "frontend-page",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-request-sign-in-link",
+            "title": "Ask for a sign-in link.",
+            "url": "/admin/sign-in-link/request",
+            "waitFor": "form",
+            "docsPage": "docs/admin/users-and-roles.md",
+            "output": "docs/images/generated/admin/action-request-sign-in-link.png",
+            "covers": [
+                "packages/admin/src/Filament/Pages/Auth/RequestLoginLink.php"
+            ],
+            "notes": "The page the login page's sign-in link option opens, captured without a session."
+        },
+        {
+            "package": "documentation",
+            "surface": "frontend",
+            "targetType": "frontend-url",
+            "target": null,
+            "scenario": "frontend-page",
+            "colorSchemes": ["light"],
+            "required": true,
+            "id": "action-coverage-used-sign-in-link",
+            "title": "A sign-in link that no longer works.",
+            "url": "/screenshot-fixtures/actions/used-sign-in-link",
+            "waitFor": "main",
+            "docsPage": "docs/admin/users-and-roles.md",
+            "output": "docs/images/generated/admin/action-used-sign-in-link.png",
+            "covers": [
+                "packages/admin/src/Filament/Pages/Auth/SignInWithLink.php"
+            ],
+            "notes": "The page a used, replaced or expired sign-in link lands on, captured without a session."
+        },
+        {
+            "package": "documentation",
             "surface": "admin",
             "targetType": "admin-surface",
             "scenario": "admin-form",

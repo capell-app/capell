@@ -332,6 +332,46 @@ it('derives detail decisions from licence and installation state', function (): 
         ->and($page->ratingIsRequired())->toBeTrue();
 });
 
+it('decides whether an extension can be installed when the Marketplace sends no licence decision', function (bool $isPaid, bool $expectedCanInstall): void {
+    Permission::findOrCreate(MarketplacePermission::ViewMarketplacePage->value, 'web');
+    test()->actingAsAdmin();
+    test()->authenticatedUser()->givePermissionTo(MarketplacePermission::ViewMarketplacePage->value);
+
+    config([
+        'capell-marketplace.marketplace.base_url' => 'https://marketplace.test/api',
+        'capell-marketplace.marketplace.web_url' => 'https://marketplace.test',
+    ]);
+
+    // capell.app omits the licence object for extensions that need no licence and reports the
+    // decision through install_state instead, as it does for the free Notes extension.
+    Http::fake([
+        'https://marketplace.test/api/extensions/notes' => Http::response([
+            'data' => [
+                'slug' => 'notes',
+                'name' => 'Notes',
+                'composer_name' => 'capell-app/notes',
+                'kind' => 'tool',
+                'latest_version' => '1.1.0',
+                'price_cents' => $isPaid ? 4900 : 0,
+                'is_paid' => $isPaid,
+                'install_state' => $isPaid ? 'purchase_required' : 'free_available',
+                'activation_required' => false,
+            ],
+        ]),
+    ]);
+
+    $page = Livewire::test(MarketplaceExtensionDetailPage::class, ['slug' => 'notes'])->assertSuccessful();
+
+    expect($page->instance()->canInstall())->toBe($expectedCanInstall)
+        ->and($page->instance()->canDownload())->toBe($expectedCanInstall)
+        ->and($page->instance()->installDecisionLabel())->toBe($expectedCanInstall
+            ? (string) __('capell-marketplace::marketplace.detail.install_decision_yes')
+            : (string) __('capell-marketplace::marketplace.detail.install_decision_no'));
+})->with([
+    'free extension' => [false, true],
+    'paid extension without a licence' => [true, false],
+]);
+
 function marketplaceDetailResponse(bool $canComment = true, bool $canRate = true): mixed
 {
     return Http::response([

@@ -6,50 +6,21 @@
 - [Running Tests](#running-tests)
 - [Pest Conventions in Capell](#pest-conventions-in-capell)
 - [Test Helpers & Traits](#test-helpers--traits)
-- [phpunit.xml Configuration](#phpunitxml-configuration)
 - [Code Quality](#code-quality)
 
 ## Test Infrastructure
 
-- **Framework**: Pest 5 with Pest plugins for Laravel, Livewire, Architecture, Type Coverage
-- **Coverage**: PCOV, minimum 90% threshold
-- **Suites**: Architecture, Feature, Integration, Unit
-
-Test directories:
-
-```
-tests/
-├── Core/
-│   ├── Arch/          # Architecture tests (namespace, conventions)
-│   ├── Feature/       # Full workflow tests
-│   ├── Integration/   # Integration with DB/cache/queue
-│   └── Unit/          # Isolated logic tests
-├── Admin/             # Admin panel & Filament tests
-├── Frontend/          # Frontend rendering & cache tests
-└── Support/           # Shared test helpers & traits
-```
+Test your application's Capell pages, page types, widgets and Actions with your own Pest or PHPUnit suite under `tests/`. Capell's models ship factories, so tests can seed sites, languages, pages and layouts without fixtures.
 
 ## Running Tests
 
 ```bash
-# Full suite (parallel) — primary command
-composer test
+# Whole suite
+php artisan test --compact
 
-# Specific suite
-./vendor/bin/pest --testsuite=Feature
-./vendor/bin/pest --testsuite=Unit
-./vendor/bin/pest --testsuite=Architecture
-
-# Specific package
-./vendor/bin/pest tests/Core/
-./vendor/bin/pest tests/Admin/
-./vendor/bin/pest tests/Frontend/
-
-# With coverage
-./vendor/bin/pest --coverage --min=90
-
-# Filter by test name
-./vendor/bin/pest --filter="creates a page"
+# One file or one test
+php artisan test --compact tests/Feature/ServicePageTest.php
+php artisan test --compact --filter=renders_the_service_page
 ```
 
 ## Pest Conventions in Capell
@@ -107,7 +78,7 @@ describe('Page creation', function () {
 ### Using Factories
 
 ```php
-// Core factories are in packages/core/database/factories/
+// Core factories are in vendor/capell-app/core/database/factories/
 $site = Site::factory()->createOne();
 $language = Language::factory()->for($site)->create();
 $page = Page::factory()->for($site)->create();
@@ -290,30 +261,12 @@ Check `tests/Support/` for shared test utilities. Common patterns:
 - `actingAs($admin)` for authenticated admin tests
 - Factory states (`.published()`, `.draft()`, `.home()`) are in core factories
 
-## phpunit.xml Configuration
-
-```xml
-<testsuites>
-    <testsuite name="Architecture">
-        <directory suffix="Test.php">tests/*/Arch</directory>
-    </testsuite>
-    <testsuite name="Feature">
-        <directory suffix="Test.php">tests/*/Feature</directory>
-    </testsuite>
-    <testsuite name="Integration">
-        <directory suffix="Test.php">tests/*/Integration</directory>
-    </testsuite>
-    <testsuite name="Unit">
-        <directory suffix="Test.php">tests/*/Unit</directory>
-    </testsuite>
-</testsuites>
-```
-
 ## Code Quality
 
-Run before committing (batch related slices, defer until end-of-phase commit):
+Before committing:
 
 ```bash
-composer preflight   # PHPStan + changed-file Pint
-composer test        # Pest (parallel), must be 100% pass
+vendor/bin/pint --dirty
+php artisan test --compact
+php artisan capell:doctor
 ```

@@ -17,6 +17,7 @@ use Capell\Marketplace\Actions\AssertNoActiveMarketplaceOperationAction;
 use Capell\Marketplace\Actions\BuildMarketplaceSuitePresentationAction;
 use Capell\Marketplace\Actions\EvaluateMarketplaceEnvironmentReadinessAction;
 use Capell\Marketplace\Actions\InstallMarketplaceExtensionAction;
+use Capell\Marketplace\Actions\ResolveMarketplaceInstallEligibilityAction;
 use Capell\Marketplace\Actions\SubmitExtensionFeedbackAction;
 use Capell\Marketplace\Actions\UpdateMarketplaceExtensionAction;
 use Capell\Marketplace\Data\ExtensionDetailData;
@@ -193,12 +194,40 @@ final class MarketplaceExtensionDetailPage extends Page
 
     public function canDownload(): bool
     {
-        return (bool) $this->detail()?->licence?->canDownload;
+        $licence = $this->detail()?->licence;
+
+        // Without a licence decision the extension needs no licence, so it downloads when it installs.
+        return $licence instanceof ExtensionLicenceDecisionData
+            ? $licence->canDownload
+            : $this->canInstall();
     }
 
     public function canInstall(): bool
     {
-        return (bool) $this->detail()?->licence?->canInstall;
+        $detail = $this->detail();
+
+        if (! $detail instanceof ExtensionDetailData) {
+            return false;
+        }
+
+        if ($detail->licence instanceof ExtensionLicenceDecisionData) {
+            return $detail->licence->canInstall;
+        }
+
+        // capell.app sends a licence decision only for licensed extensions. Without one, apply the
+        // same eligibility rule the installer enforces, so a free extension is not shown as blocked.
+        if (! $detail->listing instanceof ExtensionListingData) {
+            return false;
+        }
+
+        $eligibility = ResolveMarketplaceInstallEligibilityAction::run(
+            listing: $detail->listing,
+            instance: resolve(MarketplaceConnectionFormModel::class)->instance(),
+            action: 'install',
+            remoteEligibility: $detail->listing->installEligibilityPolicy,
+        );
+
+        return $eligibility->canInstall && ! $eligibility->blocksInstall();
     }
 
     public function requiresLicenceKey(): bool

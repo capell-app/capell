@@ -276,6 +276,41 @@ it('renders marketplace extension images and compacts long tag groups', function
         ->not->toContain('>Scheduling<');
 });
 
+it('shows the extension name, full version and price below the card image', function (): void {
+    $content = view('capell-marketplace::filament.tables.columns.marketplace-extension-pod', [
+        'attributes' => new ComponentAttributeBag,
+        'getExtraAttributes' => fn (): array => [],
+        'getRecord' => fn (): array => [
+            'key' => 'workspace-suite',
+            'name' => 'Workspace Suite',
+            'kind' => 'tool',
+            'description' => 'Workspace automation tools.',
+            'image_url' => 'https://marketplace.test/images/workspace-suite.png',
+            'price_label' => 'Free',
+            'is_paid' => false,
+            'latest_version' => '1.1.0-beta.3',
+            'author_name' => 'Capell Labs',
+            'category_labels' => ['Workspaces'],
+            'compatibility_warnings' => [],
+        ],
+    ])->render();
+
+    $document = new DOMDocument;
+    @$document->loadHTML('<?xml encoding="utf-8"?>' . $content);
+    $xpath = new DOMXPath($document);
+    $headings = $xpath->query('//article//h3');
+    $headingsInsideFigure = $xpath->query('//article//figure//h3');
+    $images = $xpath->query('//article//figure//img[@alt]');
+
+    $heading = $headings instanceof DOMNodeList ? $headings->item(0) : null;
+
+    expect($heading)->toBeInstanceOf(DOMElement::class)
+        ->and($heading instanceof DOMElement ? $heading->textContent : '')->toContain('Workspace Suite')
+        ->and($headingsInsideFigure instanceof DOMNodeList ? $headingsInsideFigure->length : null)->toBe(0)
+        ->and($images instanceof DOMNodeList ? $images->length : null)->toBe(1)
+        ->and($content)->toContain('1.1.0-beta.3')->toContain('Free');
+});
+
 it('does not render a blocked tag on marketplace extension cards', function (): void {
     $content = view('capell-marketplace::filament.tables.columns.marketplace-extension-pod', [
         'attributes' => new ComponentAttributeBag,
