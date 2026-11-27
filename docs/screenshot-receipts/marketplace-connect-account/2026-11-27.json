@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "outcome": "completed",
+  "captured": 2,
+  "skipped": 0,
+  "failed": 0,
+  "warnings": [],
+  "results": [
+    {
+      "status": "captured",
+      "package": "marketplace",
+      "id": "marketplace-extension-detail-connect-account",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-connect-shot/packages/marketplace/docs/images/screenshots/marketplace-extension-detail-connect-account.png",
+      "reason": null,
+      "artifacts": null
+    },
+    {
+      "status": "captured",
+      "package": "marketplace",
+      "id": "marketplace-extension-detail-connect-account-dark",
+      "required": true,
+      "output": "/Users/ben/Sites/.capell-wt/core-connect-shot/packages/marketplace/docs/images/screenshots/marketplace-extension-detail-connect-account-dark.png",
+      "reason": null,
+      "artifacts": null
+    }
+  ],
+  "provenance": {
+    "schemaVersion": 2,
+    "generator": "shared-capell-screenshot-runner",
+    "policy": "runner-only-v2",
+    "generatedAt": "2026-11-27T20:17:30.445Z",
+    "dryRun": false,
+    "runner": {
+      "version": "1.0.0-rc.1",
+      "revision": "05503f62ec741226984de302f1e13b6204df8886",
+      "clean": true,
+      "lockFile": {
+        "path": "package-lock.json",
+        "sha256": "b2767203eb39badc643ca37b691df434bb850114a33bb59b838a7093b9b52796"
+      }
+    },
+    "sources": [
+      {
+        "repository": "https://github.com/capell-app/capell.git",
+        "revision": "235fd6fe6882eb0523e1110e732c97145ef1d398",
+        "clean": true,
+        "lockFiles": [
+          {
+            "path": "composer.lock",
+            "sha256": "b23e4a6354943fdd0f6bce21d46dbeaaa4ee22d36882d11cd3c1cf09447f8739"
+          },
+          {
+            "path": "package-lock.json",
+            "sha256": "fae774038d2e31e0de6e52ae05b41a7601deea737925ea4ead258d22a4313d67"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "package": "marketplace",
+        "id": "marketplace-extension-detail-connect-account",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-connect-account.png",
+          "sha256": "d09a39e4c66e6270f144323c9ef5484c8d89a33e046bb152d0ddc6abae6bdc9f"
+        },
+        "manifest": {
+          "path": "packages/marketplace/docs/screenshots.json",
+          "sha256": "3a7d7f171b985c644c98b78fcb95264faae9db984edd06c98926fb796c5d95ee"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "235fd6fe6882eb0523e1110e732c97145ef1d398"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8187/admin",
+          "url": "http://127.0.0.1:8187/admin/extensions/marketplace/link-checker",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "light",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      },
+      {
+        "package": "marketplace",
+        "id": "marketplace-extension-detail-connect-account-dark",
+        "acceptance": "accepted",
+        "output": {
+          "path": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-connect-account-dark.png",
+          "sha256": "f0871c3734a0d200bd07926b5a7a84a39dbd10a5253914fcc9eb475c9ada0b64"
+        },
+        "manifest": {
+          "path": "packages/marketplace/docs/screenshots.json",
+          "sha256": "3a7d7f171b985c644c98b78fcb95264faae9db984edd06c98926fb796c5d95ee"
+        },
+        "source": {
+          "repository": "https://github.com/capell-app/capell.git",
+          "revision": "235fd6fe6882eb0523e1110e732c97145ef1d398"
+        },
+        "capture": {
+          "scenario": "admin-index",
+          "baseUrl": "http://127.0.0.1:8187/admin",
+          "url": "http://127.0.0.1:8187/admin/extensions/marketplace/link-checker",
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "fullPage": false,
+          "assertions": []
+        },
+        "lifecycle": {
+          "setup": "runner",
+          "cleanup": "runner"
+        },
+        "authentication": {
+          "profile": "admin"
+        },
+        "diagnostics": {
+          "browserAvailable": true,
+          "backendAvailable": true,
+          "consoleErrors": 0,
+          "pageErrors": 0,
+          "requestFailures": 0,
+          "httpErrors": 0,
+          "backendErrors": 0
+        }
+      }
+    ]
+  },
+  "text": "Capell screenshot run complete.\nCaptured: 2\nSkipped: 0\nFailed: 0\n- captured marketplace:marketplace-extension-detail-connect-account -> /Users/ben/Sites/.capell-wt/core-connect-shot/packages/marketplace/docs/images/screenshots/marketplace-extension-detail-connect-account.png\n- captured marketplace:marketplace-extension-detail-connect-account-dark -> /Users/ben/Sites/.capell-wt/core-connect-shot/packages/marketplace/docs/images/screenshots/marketplace-extension-detail-connect-account-dark.png"
+}
