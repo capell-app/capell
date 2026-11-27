@@ -35,27 +35,23 @@
             </div>
         </div>
 
-        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <div class="min-w-0">
-                <livewire:capell-marketplace.marketplace-extensions-browser
-                    :include-local-extension-state="\Capell\Admin\Filament\Pages\ExtensionsPage::canAccess()"
-                    :initial-search="request()->query('tableSearch')"
-                />
+        @include('capell-marketplace::filament.pages.extensions-page-marketplace-status', [
+            'marketplaceConnection' => $this->marketplaceConnection(),
+            'marketplaceConnectionActionsVisible' => $this->marketplaceConnection()->canManageConnectionActions(),
+            'marketplaceConnectionButtonsVisible' => $this->marketplaceConnection()->canManageConnectionActions(),
+            'marketplaceConnectionDetailsVisible' => $this->marketplaceConnection()->canViewConnectionDetails(),
+        ])
 
-                <div
-                    id="capell-marketplace-browser-modal-footer"
-                    class="mt-4 flex justify-end"
-                ></div>
-            </div>
+        <div class="min-w-0">
+            <livewire:capell-marketplace.marketplace-extensions-browser
+                :include-local-extension-state="\Capell\Admin\Filament\Pages\ExtensionsPage::canAccess()"
+                :initial-search="request()->query('tableSearch')"
+            />
 
-            <aside class="space-y-4">
-                @include('capell-marketplace::filament.pages.extensions-page-marketplace-status', [
-                    'marketplaceConnection' => $this->marketplaceConnection(),
-                    'marketplaceConnectionActionsVisible' => $this->marketplaceConnection()->canManageConnectionActions(),
-                    'marketplaceConnectionButtonsVisible' => $this->marketplaceConnection()->canManageConnectionActions(),
-                    'marketplaceConnectionDetailsVisible' => $this->marketplaceConnection()->canViewConnectionDetails(),
-                ])
-            </aside>
+            <div
+                id="capell-marketplace-browser-modal-footer"
+                class="mt-4 flex justify-end"
+            ></div>
         </div>
     </div>
 
