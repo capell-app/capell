@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('user_id')->primary();
             $table->string('token_hash', 64);
             $table->string('password_fingerprint', 64);
-            $table->timestamp('expires_at')->index();
+            $table->dateTime('expires_at')->index();
             $table->timestamp('created_at')->nullable();
         });
     }

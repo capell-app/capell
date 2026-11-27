@@ -12,6 +12,9 @@ enum AdminLoginLinkRefusal: string
 
     public function message(): string
     {
-        return (string) __('capell-admin::login_links.refusals.' . $this->value);
+        return (string) match ($this) {
+            self::NoPanelAccess => __('capell-admin::login_links.refusals.no_panel_access'),
+            self::TwoFactorEnabled => __('capell-admin::login_links.refusals.two_factor_enabled'),
+        };
     }
 }

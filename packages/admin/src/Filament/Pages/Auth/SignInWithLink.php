@@ -101,13 +101,23 @@ class SignInWithLink extends SimplePage
     #[Override]
     public function getHeading(): string|Htmlable|null
     {
-        return __('capell-admin::login_links.sign_in.' . $this->state . '.heading');
+        return match ($this->state) {
+            'ready' => __('capell-admin::login_links.sign_in.ready.heading'),
+            AdminLoginLinkRefusal::NoPanelAccess->value => __('capell-admin::login_links.sign_in.no_panel_access.heading'),
+            AdminLoginLinkRefusal::TwoFactorEnabled->value => __('capell-admin::login_links.sign_in.two_factor_enabled.heading'),
+            default => __('capell-admin::login_links.sign_in.invalid.heading'),
+        };
     }
 
     #[Override]
     public function getSubheading(): string|Htmlable|null
     {
-        return __('capell-admin::login_links.sign_in.' . $this->state . '.body', ['minutes' => AdminLoginLinks::expiresInMinutes()]);
+        return match ($this->state) {
+            'ready' => __('capell-admin::login_links.sign_in.ready.body'),
+            AdminLoginLinkRefusal::NoPanelAccess->value => __('capell-admin::login_links.sign_in.no_panel_access.body'),
+            AdminLoginLinkRefusal::TwoFactorEnabled->value => __('capell-admin::login_links.sign_in.two_factor_enabled.body'),
+            default => __('capell-admin::login_links.sign_in.invalid.body', ['minutes' => AdminLoginLinks::expiresInMinutes()]),
+        };
     }
 
     public function content(Schema $schema): Schema
