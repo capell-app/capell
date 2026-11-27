@@ -7,6 +7,7 @@ namespace Capell\Core\Console\Commands;
 use Capell\Core\Actions\Settings\WriteSettingAction;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
+use Throwable;
 
 final class SettingsSetCommand extends Command
 {
@@ -32,6 +33,12 @@ final class SettingsSetCommand extends Command
             $saved = WriteSettingAction::run($group, $property, (string) $this->argument('value'));
         } catch (InvalidArgumentException $invalidArgumentException) {
             $this->error($invalidArgumentException->getMessage());
+
+            return self::FAILURE;
+        } catch (Throwable $throwable) {
+            // A failed save can carry every sibling setting's value in its message (query bindings), so report
+            // only the class and never the message or a chained previous exception.
+            $this->error(sprintf('Could not save %s: %s. Nothing was printed from the error because it may contain secret values.', $setting, $throwable::class));
 
             return self::FAILURE;
         }

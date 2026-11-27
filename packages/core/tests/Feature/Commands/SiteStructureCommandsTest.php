@@ -15,9 +15,11 @@ use Capell\Core\Tests\Support\UnmarkedSecretProbeSettings;
 use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Event;
+use Spatie\LaravelSettings\Events\SavingSettings;
 use Spatie\LaravelSettings\SettingsRepositories\SettingsRepository;
 
 it('lists the page type and layout makers with the other makers', function (): void {
@@ -203,6 +205,17 @@ it('keeps a Theme Studio brand profile renderable when a token is given the wron
 
     expect($profile['primaryColor'])->toBeString()
         ->and(BrandProfileData::from($profile)->primaryColor)->toBeString();
+});
+
+it('prints no value from a failed save, because the error can carry every secret in the group', function (): void {
+    Event::listen(SavingSettings::class, function (): never {
+        throw new QueryException('testing', 'update settings set payload = ?', ['sk_live_binding_5523'], new RuntimeException('write denied sk_live_binding_5523'));
+    });
+
+    artisanCommand('capell:settings:set', ['setting' => 'core.allow_relative_image_urls', 'value' => 'false'])
+        ->doesntExpectOutputToContain('sk_live_binding_5523')
+        ->expectsOutputToContain('Could not save core.allow_relative_image_urls')
+        ->assertExitCode(Command::FAILURE);
 });
 
 it('refuses to change a locked setting and leaves its value alone', function (): void {
