@@ -128,9 +128,9 @@ The server decision reads the request, so use it only in responses that are neve
 
 ## Decide later, without a request
 
-Queued work, such as a server-side analytics send, has no request to read. Store the visitor's consent subject from `Capell\Core\Contracts\Privacy\IdentifiesConsentSubject` when you queue the work. Immediately before the work acts, resolve `Capell\Core\Contracts\Privacy\ConsentDecisionLookup` and call `decisionFor($subject, $category)`. Act only on `Granted`. Without a consent manager, Core's lookup answers `Undecided` for every subject, so the work does nothing.
+Queued work, such as a server-side analytics send, has no request to read. Store the visitor's consent subject from `Capell\Core\Contracts\Privacy\IdentifiesConsentSubject` when you queue the work. Immediately before the work acts, resolve `Capell\Core\Contracts\Privacy\ConsentDecisionLookup` and call `decisionFor($subject, $category, $siteId)` with the site the work belongs to. Act only on `Granted`. Without a consent manager, Core's lookup answers `Undecided` for every subject, so the work does nothing.
 
-A consent manager that records decisions binds its own lookup. It answers from its stored records and treats a decision made under an older consent policy as `Undecided`.
+A consent manager that records decisions binds its own lookup. It answers from that site's stored records and treats a decision made under an older version of that site's consent policy as `Undecided`. A consent cookie can be shared by several sites on one host, so a decision recorded on one site never answers for another.
 
 ## Replace the provider
 

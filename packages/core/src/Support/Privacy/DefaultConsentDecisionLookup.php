@@ -15,7 +15,7 @@ use Override;
 final readonly class DefaultConsentDecisionLookup implements ConsentDecisionLookup
 {
     #[Override]
-    public function decisionFor(string $subject, string $category): ConsentDecision
+    public function decisionFor(string $subject, string $category, ?int $siteId): ConsentDecision
     {
         return ConsentDecision::Undecided;
     }
