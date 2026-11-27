@@ -26,6 +26,8 @@ final class ReadSettingsAction
 
     public const string HIDDEN = '(hidden)';
 
+    private const string SECRET_NAME = '/secret|password|token|private_key|api_key|webhook_secret/i';
+
     /**
      * @param  class-string  $class
      * @return list<string>
@@ -50,7 +52,11 @@ final class ReadSettingsAction
         // Spatie's own config covers both the encrypted() list and the #[ShouldBeEncrypted] attribute.
         $config = new SettingsConfig($class);
 
-        return array_values(array_filter(self::properties($class), $config->isEncrypted(...)));
+        // Backstop: a secret nobody marked encrypted is still hidden by its name.
+        return array_values(array_filter(
+            self::properties($class),
+            fn (string $property): bool => $config->isEncrypted($property) || preg_match(self::SECRET_NAME, $property) === 1,
+        ));
     }
 
     /**

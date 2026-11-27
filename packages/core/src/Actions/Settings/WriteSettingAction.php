@@ -7,6 +7,7 @@ namespace Capell\Core\Actions\Settings;
 use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Site;
 use Capell\Core\Support\Settings\RegisteredSettingsClasses;
+use Capell\Core\ThemeStudio\Data\BrandProfileData;
 use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use InvalidArgumentException;
 use JsonException;
@@ -55,6 +56,11 @@ final class WriteSettingAction
         );
 
         $converted = $this->convert(new ReflectionProperty($class, $property), $value, $group . '.' . $property, $hidden);
+
+        if ($settings instanceof ThemeStudioSettings && $property === 'brandProfile' && is_array($converted)) {
+            // The admin save merges onto the stored profile, which keeps every token a string.
+            $converted = BrandProfileData::from($settings->brandProfile)->merge($converted)->toArray();
+        }
 
         $settings->{$property} = $converted;
         $settings->save();

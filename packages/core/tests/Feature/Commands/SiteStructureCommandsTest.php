@@ -11,6 +11,9 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Tests\Support\EncryptedProbeSettings;
+use Capell\Core\Tests\Support\UnmarkedSecretProbeSettings;
+use Capell\Core\ThemeStudio\Data\BrandProfileData;
+use Capell\Core\ThemeStudio\Settings\ThemeStudioSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
@@ -170,6 +173,36 @@ it('never prints a setting that is encrypted by attribute, on read or write', fu
     expect($everything)->not->toContain('sentinel-secret-9137')
         ->and(Artisan::output())->not->toContain('sentinel-secret-9137')->toContain('(hidden)')
         ->and(resolve(EncryptedProbeSettings::class)->refresh()->api_token)->toBe('sentinel-secret-9137');
+});
+
+it('hides a secret by its name even when nobody marked it encrypted', function (): void {
+    config()->set('settings.settings', [...(array) config('settings.settings', []), UnmarkedSecretProbeSettings::class]);
+    $repository = resolve(SettingsRepository::class);
+    $repository->createProperty('unmarked-probe', 'stripe_secret_key', 'sk_live_seed');
+    $repository->createProperty('unmarked-probe', 'display_name', 'Shop');
+
+    artisanCommand('capell:settings:set', ['setting' => 'unmarked-probe.stripe_secret_key', 'value' => 'sk_live_sentinel_4471'])
+        ->doesntExpectOutputToContain('sk_live_sentinel_4471')
+        ->assertExitCode(Command::SUCCESS);
+
+    Artisan::call('capell:settings:get', ['setting' => 'unmarked-probe', '--json' => true]);
+    $json = Artisan::output();
+    Artisan::call('capell:settings:get', ['setting' => 'unmarked-probe.stripe_secret_key']);
+    $single = Artisan::output();
+
+    expect($json)->not->toContain('sk_live_sentinel_4471')->toContain('Shop')
+        ->and($single)->not->toContain('sk_live_sentinel_4471')
+        ->and(resolve(UnmarkedSecretProbeSettings::class)->refresh()->stripe_secret_key)->toBe('sk_live_sentinel_4471');
+});
+
+it('keeps a Theme Studio brand profile renderable when a token is given the wrong type', function (): void {
+    artisanCommand('capell:settings:set', ['setting' => 'theme_studio.brandProfile', 'value' => '{"primaryColor":[]}'])
+        ->assertExitCode(Command::SUCCESS);
+
+    $profile = resolve(ThemeStudioSettings::class)->refresh()->brandProfile;
+
+    expect($profile['primaryColor'])->toBeString()
+        ->and(BrandProfileData::from($profile)->primaryColor)->toBeString();
 });
 
 it('refuses to change a locked setting and leaves its value alone', function (): void {
