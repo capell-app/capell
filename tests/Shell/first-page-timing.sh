@@ -94,8 +94,75 @@ contains 'the masked failure is marked' "$scratch/masked.md" '| Masked step | fa
     parse_args --core-path "$root" --minimal
     printf 'minimal=[%s]\n' "$(install_profile_args)"
 ) >"$scratch/profile.out" 2>&1
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root" --preset marketing --publish
+    printf 'preset=[%s]\n' "$(install_profile_args)"
+) >>"$scratch/profile.out" 2>&1
 contains 'default install passes no profile' "$scratch/profile.out" 'default=[]'
 contains '--minimal passes --minimal to capell:install' "$scratch/profile.out" 'minimal=[--minimal]'
+contains '--preset and --publish are passed to capell:install' "$scratch/profile.out" 'preset=[--preset=marketing --publish]'
+
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root"
+    printf 'dev=[%s]\n' "$(create_project_stability_args)"
+    parse_args --core-path "$root" --released-skeleton
+    printf 'released=[%s]\n' "$(create_project_stability_args)"
+) >"$scratch/stability.out" 2>&1
+contains 'the skeleton development branch is the default' "$scratch/stability.out" 'dev=[--stability=dev]'
+contains '--released-skeleton resolves the tagged release' "$scratch/stability.out" 'released=[]'
+
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root"
+    LOG_DIR="$scratch/signin-logs"
+    WORKDIR="$scratch/signin-work"
+    APP_DIR="$scratch/not-an-app"
+    mkdir -p "$LOG_DIR" "$WORKDIR" "$APP_DIR"
+    printf 'nobody@example.test' >"$WORKDIR/admin.email"
+    step_admin_sign_in
+) >/dev/null 2>&1
+signin_status=$?
+check 'the sign-in step fails when the application cannot sign the administrator in' 1 $((signin_status > 0 ? 1 : 0))
+
+# A bootstrap exception can leave php exiting 0; the step must still fail without the success line.
+mkdir -p "$scratch/shim"
+printf '#!/bin/sh\necho "Target class [request] does not exist."\nexit 0\n' >"$scratch/shim/php"
+chmod +x "$scratch/shim/php"
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root"
+    LOG_DIR="$scratch/shim-logs"
+    WORKDIR="$scratch/shim-work"
+    APP_DIR="$scratch/shim-app"
+    mkdir -p "$LOG_DIR" "$WORKDIR" "$APP_DIR"
+    printf 'admin@example.test' >"$WORKDIR/admin.email"
+    PATH="$scratch/shim:$PATH"
+    step_admin_sign_in
+) >/dev/null 2>&1
+shim_status=$?
+check 'the sign-in step fails when php exits 0 without reporting the dashboard' 1 $((shim_status > 0 ? 1 : 0))
+
+bash "$script" --preset >"$scratch/nopreset.out" 2>&1
+check '--preset without a value exits 2' 2 $?
+
+(
+    # shellcheck source=/dev/null
+    source "$script"
+    parse_args --core-path "$root"
+    LOG_DIR="$scratch/logs"
+    mkdir -p "$LOG_DIR"
+    # shellcheck disable=SC2034 # read by step_admin_login in the sourced script
+    PORT=1
+    step_admin_login
+) >/dev/null 2>&1
+admin_status=$?
+check 'the admin sign-in page step fails when nothing answers' 1 $((admin_status > 0 ? 1 : 0))
 
 if ((failures > 0)); then
     printf '%d check(s) failed\n' "$failures"

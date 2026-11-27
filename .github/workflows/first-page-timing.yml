@@ -1,13 +1,18 @@
 name: First page timing
 
 # Proves a fresh app built from this Core reaches its first page in under five minutes.
-# It runs in the merge queue and after merges to main rather than on every PR push: the run
-# installs a whole application, so it is too slow for the fast PR gate. A regression is
-# caught before it reaches main, and again on main for direct pushes. A nightly run covers
+# The install runs in the merge queue and after merges to main rather than on every PR push: it
+# builds a whole application, so it is too slow for the fast PR gate. The required check is the
+# light `gate` job, which reports on pull requests without installing so a PR can enter the queue,
+# and fails elsewhere unless the install succeeded. A regression is caught before it reaches main,
+# and again on main for direct pushes. A nightly run covers
 # Packagist releases of the other packages, which change without a Core merge. Run it by hand with
 # workflow_dispatch, or locally with scripts/first-page-timing.sh.
 
 on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
     types: [checks_requested]
   push:
@@ -21,12 +26,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: first-page-timing-${{ github.event.merge_group.head_sha || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  group: first-page-timing-${{ github.event.merge_group.head_sha || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
   first-page:
-    name: Fresh app reaches its first page in under 5 minutes
+    name: Install a fresh app and time its first page
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # A hang ceiling only. The 300 s budget is enforced by the script.
     timeout-minutes: 20
@@ -42,6 +48,9 @@ jobs:
           extensions: dom, mbstring, intl, pdo_sqlite, sqlite3, zip, gd, bcmath, exif
           tools: composer:v2
           coverage: none
+          # The dev server crashed once in opcache.so on the runner (general protection fault, PHP 8.4.28), which
+          # reads as a dead server. A one-off install and page crawl gains nothing from opcache.
+          ini-values: opcache.enable_cli=0
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
@@ -50,10 +59,38 @@ jobs:
         run: bash tests/Shell/first-page-timing.sh
       - name: Time the fresh app to its first page
         run: bash scripts/first-page-timing.sh --workdir "$RUNNER_TEMP/first-page"
+      - name: Time a new user's marketing install to a published site and its admin sign-in page
+        # A hang ceiling of ten minutes, the target for a new user from create-project to a first page.
+        run: bash scripts/first-page-timing.sh --preset marketing --publish --budget 600 --workdir "$RUNNER_TEMP/first-page-marketing" --port 8001
+      - name: Time the install from the newest released skeleton, as create-project resolves it today
+        # Catches a broken skeleton release, which the development-branch runs above cannot see.
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: bash scripts/first-page-timing.sh --released-skeleton --preset marketing --publish --budget 600 --workdir "$RUNNER_TEMP/first-page-released" --port 8002
       - name: Upload logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: first-page-timing-logs
-          path: ${{ runner.temp }}/first-page/logs
+          path: |
+            ${{ runner.temp }}/first-page/logs
+            ${{ runner.temp }}/first-page-marketing/logs
+            ${{ runner.temp }}/first-page-released/logs
           if-no-files-found: ignore
+
+  gate:
+    name: Fresh app reaches its first page in under 5 minutes
+    if: always()
+    needs: [first-page]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the gate decision
+        run: python3 -B tests/Shell/test_first_page_gate_result.py
+      - name: Require the install outside pull requests
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FIRST_PAGE_RESULT: ${{ needs.first-page.result }}
+        run: bash scripts/check-first-page-gate-result.sh

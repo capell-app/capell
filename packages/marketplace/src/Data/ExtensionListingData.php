@@ -6,6 +6,7 @@ namespace Capell\Marketplace\Data;
 
 use Capell\Admin\Actions\Extensions\ResolveExtensionAssetPathAction;
 use Capell\Admin\Data\Extensions\ExtensionCatalogueMetadataData;
+use Capell\Admin\Support\Extensions\ExtensionAssetUrl;
 use Capell\Core\Data\Extensions\ReleaseDigestMapData;
 use Capell\Core\Support\PackageRegistry\CapellPackageRegistry;
 use Capell\Marketplace\Enums\MarketplaceInstallState;
@@ -330,14 +331,7 @@ final class ExtensionListingData extends Data
         $registry = resolve(CapellPackageRegistry::class);
         $manifest = $registry->all()[$composerName] ?? null;
 
-        if ($manifest === null || ResolveExtensionAssetPathAction::run($manifest, ResolveExtensionAssetPathAction::CARD_IMAGE_PATH, verifyDecode: false) === null) {
-            return null;
-        }
-
-        return route('capell-admin.extension-asset', [
-            'package' => $composerName,
-            'path' => ResolveExtensionAssetPathAction::CARD_IMAGE_PATH,
-        ]);
+        return $manifest === null ? null : ExtensionAssetUrl::for($manifest, ResolveExtensionAssetPathAction::CARD_IMAGE_PATH);
     }
 
     /** @return array<string, string> */

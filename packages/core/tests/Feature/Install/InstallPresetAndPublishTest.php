@@ -173,6 +173,20 @@ it('publishes the draft pages as part of the install', function (): void {
         ->and($page->refresh()->publishVisibilityState())->toBe(PublishVisibilityStateEnum::published);
 });
 
+it('says the pages were already published instead of reporting zero published', function (): void {
+    $author = User::factory()->createOne();
+    bindPresetScenarioExecutor($author, function (): void {
+        Page::factory()->site(Site::factory()->default()->create())->create(['visible_from' => now()->subDay(), 'visible_until' => null]);
+    });
+    allowPublication(true);
+
+    [$exit, $output] = runPresetScenario(presetScenarioOptions($author));
+
+    expect($exit)->toBe(0)
+        ->and((string) $output)->toContain('Nothing to publish: your 1 page is already published.')
+        ->not->toContain('Published 0');
+});
+
 it('publishes the draft pages of a public site spec after importing it', function (): void {
     $author = User::factory()->createOne();
     bindPresetScenarioExecutor($author);

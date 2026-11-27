@@ -55,6 +55,18 @@ it('publishes every draft page of the installed site and nothing else', function
         ->and($foreignDraft->refresh()->publishVisibilityState())->toBe(PublishVisibilityStateEnum::draft);
 });
 
+it('reports the pages that were already published so the install message can say so', function (): void {
+    bindPublicationAuthorizer(true);
+    $site = Site::factory()->default()->create();
+    Page::factory()->site($site)->create(['visible_from' => now()->subDay(), 'visible_until' => null]);
+    draftPageOn($site, 'About');
+
+    $result = PublishInstalledSiteAction::run(new User);
+
+    expect($result->published)->toBe(1)
+        ->and($result->alreadyPublished)->toBe(1);
+});
+
 it('is safe to replay: a second run finds nothing left to publish', function (): void {
     bindPublicationAuthorizer(true);
     $site = Site::factory()->default()->create();

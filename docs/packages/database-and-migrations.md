@@ -76,7 +76,7 @@ DB_HOST=127.0.0.1 DB_PORT=3306 DB_USERNAME=root DB_PASSWORD=secret \
 CAPELL_MARIADB_CONNECTION=mariadb vendor/bin/pest --configuration=phpunit.mariadb.xml --testsuite=MariaDBAssetAttachmentKeys
 ```
 
-Hosted CI runs the whole of `phpunit.mariadb.xml` against MariaDB 10.11 in the merge queue, on `main` and nightly (`.github/workflows/mariadb-suite.yml`). When a migration adds a table, record it in both `main-default.json` and `main-mariadb-default.json` under `packages/core/tests/fixtures/table-naming/`; the ordinary suite fails while the two list different tables.
+Hosted CI runs the whole of `phpunit.mariadb.xml` against MariaDB 11.8 in the merge queue, on `main` and nightly (`.github/workflows/mariadb-suite.yml`). When a migration adds a table, record it in both `main-default.json` and `main-mariadb-default.json` under `packages/core/tests/fixtures/table-naming/`; the ordinary suite fails while the two list different tables.
 
 ## Extension Lifecycle Ledger
 

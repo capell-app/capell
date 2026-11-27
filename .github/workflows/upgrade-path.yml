@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # SQLite is what the skeleton installs; MariaDB 10.11 is what production runs. The
+        # SQLite is what the skeleton installs; MariaDB 11.8 is what production runs. The
         # script starts its own MariaDB container, so the job needs no service block.
         # The third leg reaches MariaDB through Laravel's mariadb driver, whose native UUID
         # columns behave differently from the mysql driver's text.
@@ -66,6 +66,9 @@ jobs:
           extensions: dom, mbstring, intl, pdo_sqlite, sqlite3, pdo_mysql, zip, gd, bcmath, exif, curl
           tools: composer:v2
           coverage: none
+          # The dev server crashed once in opcache.so on the runner (general protection fault, PHP 8.4.28), which
+          # reads as a dead server. A one-off install and page crawl gains nothing from opcache.
+          ini-values: opcache.enable_cli=0
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:

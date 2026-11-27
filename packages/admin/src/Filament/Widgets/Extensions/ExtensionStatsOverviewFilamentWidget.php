@@ -8,6 +8,7 @@ use Capell\Admin\Actions\Extensions\BuildExtensionOperationsSummaryAction;
 use Capell\Admin\Contracts\CapellFilamentWidgetContract;
 use Capell\Admin\Data\Extensions\ExtensionOperationsSummaryData;
 use Capell\Admin\Filament\Concerns\GatedByRoleAndSettings;
+use Capell\Admin\Filament\Pages\ExtensionsPage;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Override;
@@ -59,6 +60,8 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
         return Stat::make(__('capell-admin::generic.extension_operations_tab_installed'), (string) $summary->installedCount)
             ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-cube')
+            ->description(trans_choice('capell-admin::generic.extension_stats.installed', $summary->installedCount, ['count' => $summary->installedCount]))
+            ->url(ExtensionsPage::getUrl(['installed-extensionsFilters' => ['installed_status' => ['value' => '1']]]))
             ->color('primary');
     }
 
@@ -67,6 +70,8 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
         return Stat::make(__('capell-admin::generic.extension_operations_tab_uninstalled'), (string) $summary->uninstalledCount)
             ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-archive-box')
+            ->description(trans_choice('capell-admin::generic.extension_stats.uninstalled', $summary->uninstalledCount, ['count' => $summary->uninstalledCount]))
+            ->url(ExtensionsPage::getUrl(['installed-extensionsFilters' => ['installed_status' => ['value' => '0']]]))
             ->color('gray');
     }
 
@@ -75,6 +80,8 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
         return Stat::make(__('capell-admin::generic.extension_operations_tab_needs_attention'), (string) $summary->needsAttentionCount)
             ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-exclamation-triangle')
+            ->description(trans_choice('capell-admin::generic.extension_stats.needs_attention', $summary->needsAttentionCount, ['count' => $summary->needsAttentionCount]))
+            ->descriptionIcon($summary->needsAttentionCount > 0 ? 'heroicon-m-exclamation-circle' : 'heroicon-m-check-circle')
             ->color($summary->needsAttentionCount > 0 ? 'warning' : 'success');
     }
 
@@ -83,6 +90,8 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
         return Stat::make(__('capell-admin::generic.extension_operations_tab_updates'), (string) $summary->updatesCount)
             ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-arrow-path')
+            ->description(trans_choice('capell-admin::generic.extension_stats.updates', $summary->updatesCount, ['count' => $summary->updatesCount]))
+            ->descriptionIcon($summary->updatesCount > 0 ? 'heroicon-m-arrow-up-circle' : 'heroicon-m-check-circle')
             ->color($summary->updatesCount > 0 ? 'warning' : 'success');
     }
 
@@ -91,6 +100,8 @@ final class ExtensionStatsOverviewFilamentWidget extends StatsOverviewWidget imp
         return Stat::make(__('capell-admin::generic.extension_operations_tab_blocked'), (string) $summary->blockedCount)
             ->extraAttributes(['class' => self::TILE_CLASS])
             ->icon('heroicon-o-no-symbol')
+            ->description(trans_choice('capell-admin::generic.extension_stats.blocked', $summary->blockedCount, ['count' => $summary->blockedCount]))
+            ->descriptionIcon($summary->blockedCount > 0 ? 'heroicon-m-no-symbol' : 'heroicon-m-check-circle')
             ->color($summary->blockedCount > 0 ? 'danger' : 'success');
     }
 }

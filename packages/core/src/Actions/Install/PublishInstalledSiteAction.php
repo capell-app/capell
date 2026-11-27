@@ -42,7 +42,10 @@ final class PublishInstalledSiteAction
         $published = 0;
         $refused = [];
 
-        foreach (Page::query()->where('site_id', $site->getKey())->draft()->orderBy('id')->get() as $page) {
+        $drafts = Page::query()->where('site_id', $site->getKey())->draft()->orderBy('id')->get();
+        $alreadyPublished = Page::query()->where('site_id', $site->getKey())->count() - $drafts->count();
+
+        foreach ($drafts as $page) {
             $result = TransitionPublicationAction::run(new PublicationTransitionRequestData(
                 record: $page,
                 transition: PublicationTransition::PublishNow,
@@ -61,7 +64,7 @@ final class PublishInstalledSiteAction
             'pages' => implode(', ', $refused),
         ]));
 
-        return new PublishInstalledSiteResultData(published: $published, refused: $refused);
+        return new PublishInstalledSiteResultData(published: $published, refused: $refused, alreadyPublished: $alreadyPublished);
     }
 
     private function resolveSite(): ?Site
