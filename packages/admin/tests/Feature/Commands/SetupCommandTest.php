@@ -376,6 +376,24 @@ it('names the discovered panels when more than one exists and nobody can be aske
     );
 });
 
+it('accepts a panel path the refusal advertised when the command is retried', function (): void {
+    writeSetupCommandPanelProvider();
+    File::put(app_path('Providers/Filament/BlogPanelProvider.php'), str_replace(
+        ['AdminPanelProvider', "->id('admin')", "->path('admin')"],
+        ['BlogPanelProvider', "->id('blog')", "->path('blog')"],
+        AdminPanelProviderFixtures::clean(),
+    ));
+
+    artisanCommand('capell:admin-setup', [
+        '--integration-only' => true,
+        '--preview' => true,
+        '--panel' => 'app/Providers/Filament/BlogPanelProvider.php',
+        '--no-interaction' => true,
+    ])
+        ->expectsOutputToContain('Filament panel: app/Providers/Filament/BlogPanelProvider.php')
+        ->assertExitCode(0);
+});
+
 it('normalises array based setup list options for install callers', function (): void {
     $command = new SetupCommand;
     $command->setLaravel(app());

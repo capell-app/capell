@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Capell\Core\Tests\Support\FrontendAssetsOptionTestCommand;
+use Capell\Core\Tests\Support\FrontendAssetsRepeatableOptionTestCommand;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
@@ -144,3 +145,15 @@ function frontendAssetsForOptionValue(mixed $assets, bool $interactive = false):
 
     return json_decode(trim($output->fetch()), true, flags: JSON_THROW_ON_ERROR);
 }
+
+it('expands the advertised default through a repeatable --assets option', function (): void {
+    Artisan::registerCommand(new FrontendAssetsRepeatableOptionTestCommand);
+
+    artisanCommand('capell:test-frontend-assets-repeatable-option', ['--assets' => ['default']])
+        ->expectsOutput('["resources\/css\/app.css"]')
+        ->assertExitCode(Command::SUCCESS);
+
+    artisanCommand('capell:test-frontend-assets-repeatable-option', ['--assets' => ['default', 'resources/js/app.js']])
+        ->expectsOutput('["resources\/css\/app.css","resources\/js\/app.js"]')
+        ->assertExitCode(Command::SUCCESS);
+});

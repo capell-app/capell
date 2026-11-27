@@ -86,7 +86,7 @@ trait HasPackageSelection
         } else {
             $this->requireInteractiveOrFail(
                 'Package selection',
-                'Pass --packages=<package-name,package-name>, or --package-mode=core or --package-mode=all.',
+                $this->packageSelectionHint(),
                 $this->packageSelectionPromptPackages($availablePackages)->keys()->values()->map(strval(...))->all(),
             );
 
@@ -130,6 +130,28 @@ trait HasPackageSelection
         }
 
         return in_array($freshOption, [true, '', '1', 'true', 'force'], true);
+    }
+
+    /**
+     * Only offers options this command declares: faker's `--packages` is a bare flag
+     * and has no `--package-mode`, so advertising them would send a retry nowhere.
+     */
+    private function packageSelectionHint(): string
+    {
+        $definition = $this->getDefinition();
+        $options = [];
+
+        if ($definition->hasOption('packages') && $definition->getOption('packages')->acceptValue()) {
+            $options[] = '--packages=<package-name,package-name>';
+        }
+
+        if ($this->supportsPackageSelectionMode() && $definition->hasOption('package-mode')) {
+            $options[] = '--package-mode=core or --package-mode=all';
+        }
+
+        return $options === []
+            ? 'Run this command in an interactive terminal to choose packages.'
+            : 'Pass ' . implode(', or ', $options) . '.';
     }
 
     private function resolvePackageSelectionMode(): string
