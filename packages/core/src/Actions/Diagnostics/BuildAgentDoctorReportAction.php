@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Capell\Core\Actions\Diagnostics;
 
+use Capell\Core\Actions\Packages\BuildPackageCapabilityGraphAction;
 use Capell\Core\Contracts\Makers\Maker;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Data\Diagnostics\AgentDoctorReportData;
@@ -11,6 +12,7 @@ use Capell\Core\Data\Extensions\ExtensionContributionReceiptData;
 use Capell\Core\Data\PackageData;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\ExtensionContributionType;
+use Capell\Core\Enums\PackageCapability;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Theme;
 use Capell\Core\Support\Extensions\ExtensionContributionReceiptRegistry;
@@ -29,8 +31,6 @@ final class BuildAgentDoctorReportAction
 {
     use AsFake;
     use AsObject;
-
-    private const string AgentBridgePackage = 'capell-app/agent-bridge';
 
     private const string LaravelMcpPackage = 'laravel/mcp';
 
@@ -53,17 +53,17 @@ final class BuildAgentDoctorReportAction
     ];
 
     /**
-     * @param  bool  $agentBridgeInCapell  Agent Bridge is installed into Capell, not only required by Composer.
+     * @param  bool  $agentBridge  An installed Capell package declares the `agent-bridge` capability in its manifest.
      * @return array{laravelMcp: bool, agentBridge: bool, status: string, nextStep: ?string}
      */
-    public static function mcpStatus(bool $laravelMcp, bool $agentBridgeInCapell, bool $agentBridgeInComposer): array
+    public static function mcpStatus(bool $laravelMcp, bool $agentBridge): array
     {
-        if ($agentBridgeInCapell && $laravelMcp) {
+        if ($agentBridge && $laravelMcp) {
             return ['laravelMcp' => true, 'agentBridge' => true, 'status' => 'ready', 'nextStep' => null];
         }
 
-        if ($agentBridgeInCapell) {
-            // Agent Bridge is already installed into Capell; the missing piece is the MCP library.
+        if ($agentBridge) {
+            // The bridge is already installed into Capell; the missing piece is the MCP library.
             return [
                 'laravelMcp' => false,
                 'agentBridge' => true,
@@ -72,20 +72,11 @@ final class BuildAgentDoctorReportAction
             ];
         }
 
-        if ($agentBridgeInComposer) {
-            return [
-                'laravelMcp' => $laravelMcp,
-                'agentBridge' => false,
-                'status' => 'not-installed-into-capell',
-                'nextStep' => 'php artisan capell:extension-install ' . self::AgentBridgePackage,
-            ];
-        }
-
         return [
             'laravelMcp' => $laravelMcp,
             'agentBridge' => false,
             'status' => 'missing',
-            'nextStep' => 'composer require ' . self::AgentBridgePackage,
+            'nextStep' => 'Install the Agent Bridge extension with Composer, then run php artisan capell:extension-install for it',
         ];
     }
 
@@ -213,10 +204,10 @@ final class BuildAgentDoctorReportAction
     /** @return array{laravelMcp: bool, agentBridge: bool, status: string, nextStep: ?string} */
     private function mcp(): array
     {
+        // Find the bridge by the capability its manifest declares, never by its Composer name.
         return self::mcpStatus(
             InstalledVersions::isInstalled(self::LaravelMcpPackage),
-            CapellCore::isPackageInstalled(self::AgentBridgePackage),
-            InstalledVersions::isInstalled(self::AgentBridgePackage),
+            BuildPackageCapabilityGraphAction::run()->packagesWith(PackageCapability::AgentBridge) !== [],
         );
     }
 
