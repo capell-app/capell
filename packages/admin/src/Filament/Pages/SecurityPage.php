@@ -24,6 +24,7 @@ use Capell\Core\Models\SecurityWeaknessFinding;
 use Capell\Core\Support\Security\NullSecurityWeaknessAnalyser;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -96,13 +97,13 @@ final class SecurityPage extends Page implements HasTable
             ->emptyStateHeading(fn (): string => SecurityWeaknessFinding::query()->exists() ? (string) __('capell-admin::security.no_matching_findings') : (string) __('capell-admin::security.no_findings'))
             ->columns([
                 TextColumn::make('severity')->label(__('capell-admin::security.severity'))->badge()->formatStateUsing(fn (SecurityWeaknessSeverity $state): string => SecurityLabels::severity($state)),
-                TextColumn::make('title')->label(__('capell-admin::security.finding'))->description(fn (SecurityWeaknessFinding $record): string => $record->weakness_id . ($record->source === SecurityFindingSource::Analyser ? ' — ' . __('capell-admin::security.advice_only') : '')),
+                TextColumn::make('title')->label(__('capell-admin::security.finding'))->wrap()->description(fn (SecurityWeaknessFinding $record): string => $record->weakness_id . ($record->source === SecurityFindingSource::Analyser ? ' — ' . __('capell-admin::security.advice_only') : '')),
                 TextColumn::make('source')->label(__('capell-admin::security.source'))->badge()->formatStateUsing(fn (SecurityFindingSource $state): string => SecurityLabels::source($state)),
-                TextColumn::make('composer_name')->label(__('capell-admin::security.package'))->placeholder('—'),
-                TextColumn::make('first_detected_at')->label(__('capell-admin::security.first_seen'))->dateTime(),
-                TextColumn::make('last_detected_at')->label(__('capell-admin::security.last_seen'))->dateTime(),
-                TextColumn::make('status')->label(__('capell-admin::security.status'))->badge()->formatStateUsing(fn (SecurityFindingStatus $state): string => SecurityLabels::status($state)),
-                TextColumn::make('automatic_fix')->label(__('capell-admin::security.automatic_fix'))->state(fn (SecurityWeaknessFinding $record): string => $this->fixState($record)),
+                TextColumn::make('composer_name')->label(__('capell-admin::security.package'))->placeholder('—')->wrap()->toggleable(),
+                TextColumn::make('last_detected_at')->label(__('capell-admin::security.last_seen'))->dateTime()
+                    ->description(fn (SecurityWeaknessFinding $record): string => (string) __('capell-admin::security.first_seen_on', ['date' => $record->first_detected_at->toDateTimeString()])),
+                TextColumn::make('status')->label(__('capell-admin::security.status'))->badge()->formatStateUsing(fn (SecurityFindingStatus $state): string => SecurityLabels::status($state))
+                    ->description(fn (SecurityWeaknessFinding $record): string => __('capell-admin::security.automatic_fix') . ': ' . $this->fixState($record))->wrap(),
             ])
             ->filters([
                 SelectFilter::make('status')->label(__('capell-admin::security.status'))->options(['active' => __('capell-admin::security.active'), ...SecurityLabels::statusOptions()])->default('active')
@@ -117,42 +118,44 @@ final class SecurityPage extends Page implements HasTable
             ->recordActions([
                 Action::make('evidence')->label(__('capell-admin::security.view_evidence'))->modalSubmitAction(false)->modalCancelActionLabel(__('capell-admin::security.close'))
                     ->modalDescription(fn (SecurityWeaknessFinding $record): string => $this->evidenceDescription($record)),
-                Action::make('approve')->label(__('capell-admin::security.approve'))->requiresConfirmation()->disabled(fn (): bool => ! self::canManage())
-                    ->visible(fn (SecurityWeaknessFinding $record): bool => $this->canApprove($record))
-                    ->modalDescription(fn (SecurityWeaknessFinding $record): string => $this->approvalDescription($record))
-                    ->action(function (SecurityWeaknessFinding $record): void {
-                        $user = $this->manager();
-                        abort_unless($this->canApprove($record), 403);
-                        ApproveSecurityRemediationAction::run($record->weakness_id, $user);
-                        $this->approvalCache = null;
-                    }),
-                Action::make('revoke')->label(__('capell-admin::security.revoke'))->requiresConfirmation()->disabled(fn (): bool => ! self::canManage())
-                    ->visible(fn (SecurityWeaknessFinding $record): bool => ($this->approvals()[$record->weakness_id] ?? null)?->isActive() ?? false)
-                    ->action(function (SecurityWeaknessFinding $record): void {
-                        RevokeSecurityRemediationApprovalAction::run($record->weakness_id, $this->manager());
-                        $this->approvalCache = null;
-                    }),
-                Action::make('fixNow')->label(__('capell-admin::security.fix_now'))->requiresConfirmation()->disabled(fn (): bool => ! self::canManage())
-                    ->modalDescription(fn (SecurityWeaknessFinding $record): string => $this->fixNowDescription($record))
-                    ->visible(fn (SecurityWeaknessFinding $record): bool => $record->source->mayRemediateAutomatically() && $record->status === SecurityFindingStatus::Open && $record->remediable && resolve(SecurityWeaknessRegistry::class)->remediation($record->weakness_id) !== null && (($this->approvals()[$record->weakness_id] ?? null)?->isActive() ?? false))
-                    ->action(function (SecurityWeaknessFinding $record): void {
-                        $this->assertManager();
-                        abort_unless($record->source->mayRemediateAutomatically() && $record->status === SecurityFindingStatus::Open && $record->remediable && resolve(SecurityWeaknessRegistry::class)->remediation($record->weakness_id) !== null && (($this->approvals()[$record->weakness_id] ?? null)?->isActive() ?? false), 403);
-                        $this->applyFix($record->weakness_id);
-                    }),
-                Action::make('dismiss')->label(__('capell-admin::security.dismiss'))->disabled(fn (): bool => ! self::canManage())
-                    ->visible(fn (SecurityWeaknessFinding $record): bool => $record->status->isActive())
-                    ->schema([Textarea::make('note')->label(__('capell-admin::security.note'))])
-                    ->action(function (SecurityWeaknessFinding $record, array $data): void {
-                        DismissSecurityWeaknessFindingAction::run($record, $this->manager(), $data['note'] ?? null);
-                    }),
-                Action::make('reopen')->label(__('capell-admin::security.reopen'))->disabled(fn (): bool => ! self::canManage())
-                    ->visible(fn (SecurityWeaknessFinding $record): bool => $record->status === SecurityFindingStatus::Dismissed)
-                    ->action(function (SecurityWeaknessFinding $record): void {
-                        $this->assertManager();
-                        abort_unless($record->status === SecurityFindingStatus::Dismissed, 403);
-                        ReopenSecurityWeaknessFindingAction::run($record);
-                    }),
+                ActionGroup::make([
+                    Action::make('approve')->label(__('capell-admin::security.approve'))->requiresConfirmation()->disabled(fn (): bool => ! self::canManage())
+                        ->visible(fn (SecurityWeaknessFinding $record): bool => $this->canApprove($record))
+                        ->modalDescription(fn (SecurityWeaknessFinding $record): string => $this->approvalDescription($record))
+                        ->action(function (SecurityWeaknessFinding $record): void {
+                            $user = $this->manager();
+                            abort_unless($this->canApprove($record), 403);
+                            ApproveSecurityRemediationAction::run($record->weakness_id, $user);
+                            $this->approvalCache = null;
+                        }),
+                    Action::make('revoke')->label(__('capell-admin::security.revoke'))->requiresConfirmation()->disabled(fn (): bool => ! self::canManage())
+                        ->visible(fn (SecurityWeaknessFinding $record): bool => ($this->approvals()[$record->weakness_id] ?? null)?->isActive() ?? false)
+                        ->action(function (SecurityWeaknessFinding $record): void {
+                            RevokeSecurityRemediationApprovalAction::run($record->weakness_id, $this->manager());
+                            $this->approvalCache = null;
+                        }),
+                    Action::make('fixNow')->label(__('capell-admin::security.fix_now'))->requiresConfirmation()->disabled(fn (): bool => ! self::canManage())
+                        ->modalDescription(fn (SecurityWeaknessFinding $record): string => $this->fixNowDescription($record))
+                        ->visible(fn (SecurityWeaknessFinding $record): bool => $record->source->mayRemediateAutomatically() && $record->status === SecurityFindingStatus::Open && $record->remediable && resolve(SecurityWeaknessRegistry::class)->remediation($record->weakness_id) !== null && (($this->approvals()[$record->weakness_id] ?? null)?->isActive() ?? false))
+                        ->action(function (SecurityWeaknessFinding $record): void {
+                            $this->assertManager();
+                            abort_unless($record->source->mayRemediateAutomatically() && $record->status === SecurityFindingStatus::Open && $record->remediable && resolve(SecurityWeaknessRegistry::class)->remediation($record->weakness_id) !== null && (($this->approvals()[$record->weakness_id] ?? null)?->isActive() ?? false), 403);
+                            $this->applyFix($record->weakness_id);
+                        }),
+                    Action::make('dismiss')->label(__('capell-admin::security.dismiss'))->disabled(fn (): bool => ! self::canManage())
+                        ->visible(fn (SecurityWeaknessFinding $record): bool => $record->status->isActive())
+                        ->schema([Textarea::make('note')->label(__('capell-admin::security.note'))])
+                        ->action(function (SecurityWeaknessFinding $record, array $data): void {
+                            DismissSecurityWeaknessFindingAction::run($record, $this->manager(), $data['note'] ?? null);
+                        }),
+                    Action::make('reopen')->label(__('capell-admin::security.reopen'))->disabled(fn (): bool => ! self::canManage())
+                        ->visible(fn (SecurityWeaknessFinding $record): bool => $record->status === SecurityFindingStatus::Dismissed)
+                        ->action(function (SecurityWeaknessFinding $record): void {
+                            $this->assertManager();
+                            abort_unless($record->status === SecurityFindingStatus::Dismissed, 403);
+                            ReopenSecurityWeaknessFindingAction::run($record);
+                        }),
+                ])->label(__('capell-admin::security.finding_actions'))->tooltip(__('capell-admin::security.finding_actions')),
             ]);
     }
 
