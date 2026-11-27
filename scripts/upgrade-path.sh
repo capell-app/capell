@@ -11,7 +11,7 @@
 #                       (default: the newest stable capell-app/core on Packagist).
 #   --skeleton NAME     Skeleton package for create-project (default: capell-app/capell-skeleton).
 #   --database ENGINE   sqlite (default, the skeleton's own) or mariadb, the engine production
-#                       runs. mariadb starts a disposable mariadb:10.11 container with Docker,
+#                       runs. mariadb starts a disposable mariadb:11.8 container with Docker,
 #                       published on 127.0.0.1 only, and removes it afterwards.
 #   --driver NAME       Laravel driver the app reaches MariaDB through: mysql (default, as
 #                       production does) or mariadb, which creates uuid columns as MariaDB's
@@ -66,7 +66,7 @@ FROM=""
 SKELETON="capell-app/capell-skeleton"
 DATABASE="sqlite"
 DRIVER=""
-MARIADB_IMAGE="mariadb:10.11"
+MARIADB_IMAGE="mariadb:11.8"
 PORT=8010
 WORKDIR=""
 SUMMARY="${GITHUB_STEP_SUMMARY:-}"
@@ -149,7 +149,7 @@ parse_args() {
 build_steps() {
     STEPS=()
     if [[ "$DATABASE" == "mariadb" ]]; then
-        STEPS+=("Start a MariaDB 10.11 server|step_start_database")
+        STEPS+=("Start a MariaDB 11.8 server|step_start_database")
     fi
     STEPS+=(
         "Create an app on the published release|step_create_published_app"

@@ -16,6 +16,7 @@ use Capell\Core\Models\Theme;
 use Capell\Core\Support\Json\JsonCodec;
 use Capell\Frontend\Actions\AssertStoredPublicViewSelectorsAction;
 use Capell\Frontend\Actions\RenderPageRecordDataAction;
+use Capell\Frontend\Actions\ResolveLayoutFileAction;
 use Capell\Frontend\Data\FrontendWork;
 use Capell\Frontend\Facades\Frontend;
 use Capell\Frontend\Support\Kernel\FrontendKernelSteps;
@@ -184,7 +185,7 @@ abstract class AbstractPage extends Component
                 ...$this->getViewData(),
             ],
         )
-            ->layout($this->getLayoutFile($this->layout), [
+            ->layout(ResolveLayoutFileAction::run($this->layout), [
                 'componentName' => $this->getName(),
                 'language' => $this->language,
                 'layout' => $this->layout,
@@ -405,13 +406,6 @@ abstract class AbstractPage extends Component
             RegisterThemeViewsStep::class,
             NotifySubscribersStep::class,
         ]);
-    }
-
-    private function getLayoutFile(?Layout $layout): string
-    {
-        $view = $layout?->meta['layout_file'] ?? null;
-
-        return is_string($view) && $view !== '' ? $view : config('capell-frontend.layout_file', 'capell::app');
     }
 
     private function getMasterFile(Layout $layout): string

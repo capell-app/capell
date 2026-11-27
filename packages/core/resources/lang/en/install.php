@@ -148,6 +148,8 @@ return [
     'publish' => [
         'no_user' => 'Capell could not find the administrator to publish as. Publish the pages from the admin instead.',
         'done' => '{1} ✓ Published :count draft page.|[0,*] ✓ Published :count draft pages.',
+        'none_needed' => '{1} ✓ Nothing to publish: your :count page is already published.|[0,*] ✓ Nothing to publish: your :count pages are already published.',
+        'none_found' => 'No pages were created, so there is nothing to publish.',
         'refused' => 'These pages could not be published: :pages. Capell is installed. Fix them in the admin and publish them there.',
         'already_installed' => 'The --publish option only applies to a first install, because it would also publish drafts your editors left unpublished. Publish pages from the admin instead, or drop --publish.',
         'private_spec' => 'The --publish option cannot publish a private site spec, because its first page is held back as "Coming soon". Set initialVisibility to public (with acknowledgePublic) in the spec, or drop --publish and publish from the admin when you are ready.',

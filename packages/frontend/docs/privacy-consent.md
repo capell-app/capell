@@ -126,6 +126,12 @@ Resolve `Capell\Core\Contracts\Privacy\ConsentDecisionProvider` and call `decide
 
 The server decision reads the request, so use it only in responses that are never cached, such as a tracking endpoint. Public HTML is cached and shared between visitors: never vary page output on a consent decision. Let the browser runtime decide instead.
 
+## Decide later, without a request
+
+Queued work, such as a server-side analytics send, has no request to read. Store the visitor's consent subject from `Capell\Core\Contracts\Privacy\IdentifiesConsentSubject` when you queue the work. Immediately before the work acts, resolve `Capell\Core\Contracts\Privacy\ConsentDecisionLookup` and call `decisionFor($subject, $category, $siteId)` with the site the work belongs to. Act only on `Granted`. Without a consent manager, Core's lookup answers `Undecided` for every subject, so the work does nothing.
+
+A consent manager that records decisions binds its own lookup. It answers from that site's stored records and treats a decision made under an older version of that site's consent policy as `Undecided`. A consent cookie can be shared by several sites on one host, so a decision recorded on one site never answers for another.
+
 ## Replace the provider
 
 A consent manager binds its own `ConsentDecisionProvider` in its service provider and renders its own `window.CapellPrivacy` runtime at `RenderHookLocation::HeadOpen` with a priority below 5. The default runtime then sees the existing object and leaves it in place. Its provider and runtime should refuse the categories in `capell.privacy.consent.opt_out_signal_categories` under a Global Privacy Control or Do Not Track signal and treat an undecided category as not granted, as Core's do.
