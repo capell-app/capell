@@ -16,6 +16,7 @@ use Capell\Core\Actions\HostMonitor\RollUpHostLoadAction;
 use Capell\Core\Actions\RegisterModelMorphMapAction;
 use Capell\Core\Actions\ResolvePublicPageableMorphTypesAction;
 use Capell\Core\Actions\Translations\HydratePageLanguagesAction;
+use Capell\Core\Console\Commands\ActivateThemeCommand;
 use Capell\Core\Console\Commands\AdoptTableCommand;
 use Capell\Core\Console\Commands\AgentDoctorCommand;
 use Capell\Core\Console\Commands\AgentSchemaVerifyCommand;
@@ -48,6 +49,8 @@ use Capell\Core\Console\Commands\MakeCommand;
 use Capell\Core\Console\Commands\MakeDataCommand;
 use Capell\Core\Console\Commands\MakeExtenderCommand;
 use Capell\Core\Console\Commands\MakeExtensionCommand;
+use Capell\Core\Console\Commands\MakeLayoutCommand;
+use Capell\Core\Console\Commands\MakePageTypeCommand;
 use Capell\Core\Console\Commands\MakeSchemaCommand;
 use Capell\Core\Console\Commands\MakeThemeCommand;
 use Capell\Core\Console\Commands\PackageCacheCommand;
@@ -72,6 +75,8 @@ use Capell\Core\Console\Commands\RollupMetricEventsCommand;
 use Capell\Core\Console\Commands\RuntimeRefreshCommand;
 use Capell\Core\Console\Commands\SecurityRefreshNodeCommand;
 use Capell\Core\Console\Commands\SecurityScanCommand;
+use Capell\Core\Console\Commands\SettingsGetCommand;
+use Capell\Core\Console\Commands\SettingsSetCommand;
 use Capell\Core\Console\Commands\ThemeDoctorCommand;
 use Capell\Core\Console\Commands\UninstallExtensionCommand;
 use Capell\Core\Console\Commands\UpgradeCommand;
@@ -219,8 +224,10 @@ use Capell\Core\Support\Makers\BuiltIn\BlueprintMaker;
 use Capell\Core\Support\Makers\BuiltIn\CoreSchemaMaker;
 use Capell\Core\Support\Makers\BuiltIn\DataMaker;
 use Capell\Core\Support\Makers\BuiltIn\ExtenderMaker;
+use Capell\Core\Support\Makers\BuiltIn\LayoutMaker;
 use Capell\Core\Support\Makers\BuiltIn\PageBladeComponentMaker;
 use Capell\Core\Support\Makers\BuiltIn\PageLivewireComponentMaker;
+use Capell\Core\Support\Makers\BuiltIn\PageTypeMaker;
 use Capell\Core\Support\Makers\MakerRegistry;
 use Capell\Core\Support\Makers\MakerSafety;
 use Capell\Core\Support\Marketplace\CommercialCatalogueStore;
@@ -501,6 +508,11 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
             MakeThemeCommand::class,
             PackageLintCommand::class,
             MakeBlueprintCommand::class,
+            MakePageTypeCommand::class,
+            MakeLayoutCommand::class,
+            ActivateThemeCommand::class,
+            SettingsGetCommand::class,
+            SettingsSetCommand::class,
             UpgradeCommand::class,
             RollbackCommand::class,
             RollupMetricEventsCommand::class,
@@ -926,6 +938,8 @@ class CapellServiceProvider extends AbstractPackageServiceProvider
                 ExtenderMaker::class,
                 CoreSchemaMaker::class,
                 BlueprintMaker::class,
+                PageTypeMaker::class,
+                LayoutMaker::class,
                 PageBladeComponentMaker::class,
                 PageLivewireComponentMaker::class,
                 AssetBladeComponentMaker::class,
