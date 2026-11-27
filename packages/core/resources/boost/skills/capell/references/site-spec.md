@@ -127,7 +127,7 @@ Private imports publish only a neutral, noindex coming-soon homepage. A public i
 
 ## Presets
 
-Core ships three starting points as SiteSpec files under `packages/core/resources/site-spec/presets/`: `service-business`, `shop-front` and `studio`. Each is a complete, private, five-page draft with real copy and a main navigation, and passes the same validation as any other spec. Read them through `SiteSpecPresetRegistry` (`all()`, `get($key)`, `keys()`).
+Core ships three starting points as SiteSpec files under `vendor/capell-app/core/resources/site-spec/presets/`: `service-business`, `shop-front` and `studio`. Each is a complete, private, five-page draft with real copy and a main navigation, and passes the same validation as any other spec. Read them through `SiteSpecPresetRegistry` (`all()`, `get($key)`, `keys()`).
 
 Each preset also offers a contact form under `packageData.forms`, applied by the extension that registers the `forms` applier (Form Builder). An entry has a `handle`, a `name`, a `placeOnPage` page slug, an optional `successMessage`, an optional `notify` address and `fields`, each with a `key`, `label`, `type` (`text`, `email`, `textarea` or `checkbox`) and `required`. Guided setup keeps package data only for appliers that are registered, drops a form whose page was not chosen, and sets `notify` to the address the person gives on the Review step.
 
