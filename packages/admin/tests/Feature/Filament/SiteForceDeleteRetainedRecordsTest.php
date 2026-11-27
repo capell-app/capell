@@ -11,7 +11,6 @@ use Capell\Core\Exceptions\SiteHasRetainedRecordsException;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Site;
 use Filament\Actions\Testing\TestAction;
-use Filament\Notifications\Livewire\Notifications;
 use Filament\Notifications\Notification;
 use Livewire\Livewire;
 use Spatie\Permission\Contracts\Permission as PermissionContract;
@@ -89,16 +88,18 @@ it('names the blocking records and the next step in the notification', function 
     allowSiteForceDeleteForTest();
     holdSiteRecordsForForceDeleteTest();
 
+    $reason = SiteHasRetainedRecordsException::forRecords(['form submissions under legal hold' => 2])->getMessage();
+
     Livewire::test(EditSite::class, ['record' => $site->getKey()])
-        ->callAction(TestAction::make(ForceDeleteAction::class));
+        ->callAction(TestAction::make(ForceDeleteAction::class))
+        ->assertNotified(
+            Notification::make('site_has_retained_records')
+                ->danger()
+                ->title(__('capell-admin::message.site_force_delete_retained_title'))
+                ->body(__('capell-admin::message.site_force_delete_retained_body', ['reason' => $reason]))
+                ->persistent(),
+        );
 
-    $notifications = new Notifications;
-    $notifications->mount();
-
-    $notification = $notifications->notifications->first(fn (Notification $sent): bool => $sent->getTitle() === __('capell-admin::message.site_force_delete_retained_title'));
-
-    expect($notification)->not->toBeNull()
-        ->and($notification?->getStatus())->toBe('danger')
-        ->and($notification?->getBody())->toContain('2 form submissions under legal hold')
-        ->and($notification?->getBody())->toContain('Delete it again');
+    expect($reason)->toContain('2 form submissions under legal hold')
+        ->and(__('capell-admin::message.site_force_delete_retained_body', ['reason' => $reason]))->toContain('Delete it again');
 });
