@@ -11,6 +11,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use ReflectionClass;
 use ReflectionProperty;
 use Spatie\LaravelSettings\Settings;
+use Spatie\LaravelSettings\SettingsConfig;
 
 /**
  * Reads registered Capell settings as plain values. Encrypted properties are never returned;
@@ -46,7 +47,10 @@ final class ReadSettingsAction
      */
     public static function encrypted(string $class): array
     {
-        return method_exists($class, 'encrypted') ? array_values((array) $class::encrypted()) : [];
+        // Spatie's own config covers both the encrypted() list and the #[ShouldBeEncrypted] attribute.
+        $config = new SettingsConfig($class);
+
+        return array_values(array_filter(self::properties($class), $config->isEncrypted(...)));
     }
 
     /**

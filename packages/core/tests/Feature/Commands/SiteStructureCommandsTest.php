@@ -3,13 +3,19 @@
 declare(strict_types=1);
 
 use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Events\FrontendSurrogateKeysInvalidated;
 use Capell\Core\Models\Blueprint;
 use Capell\Core\Models\Layout;
 use Capell\Core\Models\Site;
 use Capell\Core\Models\Theme;
 use Capell\Core\Settings\CoreSettings;
 use Capell\Core\Support\Makers\MakerRegistry;
+use Capell\Core\Tests\Support\EncryptedProbeSettings;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Event;
+use Spatie\LaravelSettings\SettingsRepositories\SettingsRepository;
 
 it('lists the page type and layout makers with the other makers', function (): void {
     $keys = resolve(MakerRegistry::class)->all()->map(fn ($maker): string => $maker->definition()->key)->all();
@@ -146,6 +152,44 @@ it('names the installed themes when the key is unknown', function (): void {
     artisanCommand('capell:theme:activate', ['theme' => 'missing'])
         ->expectsOutputToContain('No theme has the key [missing]')
         ->assertExitCode(Command::FAILURE);
+});
+
+it('never prints a setting that is encrypted by attribute, on read or write', function (): void {
+    config()->set('settings.settings', [...(array) config('settings.settings', []), EncryptedProbeSettings::class]);
+    resolve(SettingsRepository::class)->createProperty('encrypted-probe', 'api_token', Crypt::encrypt('seed-value'));
+
+    artisanCommand('capell:settings:set', ['setting' => 'encrypted-probe.api_token', 'value' => 'sentinel-secret-9137'])
+        ->doesntExpectOutputToContain('sentinel-secret-9137')
+        ->expectsOutputToContain('(hidden)')
+        ->assertExitCode(Command::SUCCESS);
+
+    Artisan::call('capell:settings:get');
+    $everything = Artisan::output();
+    Artisan::call('capell:settings:get', ['setting' => 'encrypted-probe.api_token']);
+
+    expect($everything)->not->toContain('sentinel-secret-9137')
+        ->and(Artisan::output())->not->toContain('sentinel-secret-9137')->toContain('(hidden)')
+        ->and(resolve(EncryptedProbeSettings::class)->refresh()->api_token)->toBe('sentinel-secret-9137');
+});
+
+it('refuses to change a locked setting and leaves its value alone', function (): void {
+    $before = resolve(CoreSettings::class)->default_locale;
+    resolve(SettingsRepository::class)->lockProperties('core', ['default_locale']);
+
+    artisanCommand('capell:settings:set', ['setting' => 'core.default_locale', 'value' => 'zz'])
+        ->expectsOutputToContain('core.default_locale is locked')
+        ->assertExitCode(Command::FAILURE);
+
+    expect(resolve(CoreSettings::class)->refresh()->default_locale)->toBe($before);
+});
+
+it('invalidates every site when a Theme Studio setting is changed from the command line', function (): void {
+    $site = Site::factory()->default()->create();
+    Event::fake([FrontendSurrogateKeysInvalidated::class]);
+
+    artisanCommand('capell:settings:set', ['setting' => 'theme_studio.activePreset', 'value' => 'boardroom'])->assertExitCode(Command::SUCCESS);
+
+    Event::assertDispatched(FrontendSurrogateKeysInvalidated::class, fn (FrontendSurrogateKeysInvalidated $event): bool => in_array('site-' . $site->getKey(), $event->surrogateKeys, true));
 });
 
 it('reads and changes a setting with its declared type', function (): void {
