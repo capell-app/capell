@@ -1,11 +1,11 @@
 ---
 name: capell
-description: Capell CMS architecture, public-output safety, extension points, SiteSpec import, demo installs and Marketplace operations. Use when editing or reviewing Capell core, admin, frontend rendering, page types, schemas, caching, or extension points.
+description: Capell CMS architecture, public-output safety, extension points, SiteSpec import, demo installs and Marketplace operations for a Capell application. Use when writing or reviewing code in a Capell application that touches page types, schemas, rendering, caching, settings or extension points.
 ---
 
 # Capell CMS
 
-Use this skill for Capell-specific architecture. Keep context small: read only the reference file that matches the task.
+Use this skill for Capell-specific architecture in your application. Keep context small: read only the reference file that matches the task. To build or restyle a site from Capell's themes, layouts, widgets and packages, start with `capell-site-building`.
 
 ## Defaults
 
@@ -17,10 +17,10 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 
 ## Architecture
 
-- Domain behaviour belongs in Actions under `packages/{pkg}/src/Actions`.
+- Domain behaviour belongs in Actions (for example `app/Actions`, or `src/Actions` in a package you write).
 - UI, resources, controllers, commands, and Livewire delegate to Actions.
 - Use Data objects for request, form, wire, API, and JSON-cast boundaries.
-- New core migrations must be registered in `packages/core/src/Concerns/HasMigrations.php`.
+- Extend Capell through the registries below. Never edit `vendor/capell-app/*` or publish Core schemas to change them.
 
 ## Public Output Safety
 
@@ -87,4 +87,4 @@ Use this skill for Capell-specific architecture. Keep context small: read only t
 
 - Test Actions directly where possible.
 - Start with the narrowest Pest file/package, then broaden for shared contracts or public rendering.
-- Common checks: `composer test`, `composer preflight`, `composer lint`, `composer analyze`.
+- Common checks: `php artisan test --compact`, `vendor/bin/pint --dirty` and `php artisan capell:doctor`.
