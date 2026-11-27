@@ -363,6 +363,41 @@ php artisan capell:make core.action --name=PublishPage --dry-run
 | `--dry-run`  | Preview without writing                                 |
 | `--force`    | Overwrite existing files after warning                  |
 
+### `capell:make:page-type` and `capell:make:layout`
+
+Create a page type (a page blueprint editors choose when they add a page) or a layout, as database records. Both refuse a key that already exists, and `--dry-run` shows the record without writing. Database writes follow `capell.diagnostics.database_writes`, which allows them only in local, development and testing environments by default.
+
+```bash
+php artisan capell:make:page-type service-page --name="Service page"
+php artisan capell:make:layout two-column --name="Two column" --from=default
+```
+
+`--from` copies the containers of an existing layout, so the new layout has the same areas to place widgets in. The same makers run through `capell:make core.page-type --name="Service page" --database` and `capell:make core.layout --name="Two column" --source=default --database`.
+
+### `capell:theme:activate`
+
+Makes a theme the live theme for sites. It creates the theme record when the theme package is installed but has no record yet.
+
+```bash
+php artisan capell:theme:activate aurora
+php artisan capell:theme:activate aurora --site=2 --site=3
+php artisan capell:theme:activate aurora --all-sites --default
+```
+
+With one site, `--site` is optional. With more than one, pass `--site` for each site or `--all-sites`. `--default` also makes it the theme new sites start with.
+
+### `capell:settings:get` and `capell:settings:set`
+
+Read and change registered Capell settings from the command line.
+
+```bash
+php artisan capell:settings:get
+php artisan capell:settings:get core --json
+php artisan capell:settings:set core.allow_relative_image_urls false
+```
+
+`set` converts the value to the setting's declared type and refuses a value of the wrong type. Encrypted settings are shown as `(hidden)`.
+
 ### Legacy maker wrappers
 
 These commands still exist for scripts and muscle memory:
@@ -374,6 +409,8 @@ php artisan capell:make:extender HeroFields AfterTitle
 php artisan capell:make:schema LandingPage
 php artisan capell:make:blueprint LandingPage
 ```
+
+`capell:make:blueprint` creates a model class that can carry blueprints. To give editors a new kind of page, use `capell:make:page-type` instead.
 
 Prefer `capell:make` for new docs and examples because it shows registered makers and supports dry runs.
 

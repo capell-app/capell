@@ -1,0 +1,143 @@
+<?php
+
+declare(strict_types=1);
+
+use Capell\Core\Enums\BlueprintSubjectEnum;
+use Capell\Core\Models\Blueprint;
+use Capell\Core\Models\Layout;
+use Capell\Core\Models\Site;
+use Capell\Core\Models\Theme;
+use Capell\Core\Settings\CoreSettings;
+use Capell\Core\Support\Makers\MakerRegistry;
+use Illuminate\Console\Command;
+
+it('lists the page type and layout makers with the other makers', function (): void {
+    $keys = resolve(MakerRegistry::class)->all()->map(fn ($maker): string => $maker->definition()->key)->all();
+
+    expect($keys)->toContain('core.page-type', 'core.layout');
+});
+
+it('creates a page type editors can choose', function (): void {
+    artisanCommand('capell:make:page-type', ['key' => 'service-page', '--name' => 'Service page'])
+        ->expectsOutputToContain('created Blueprint')
+        ->assertExitCode(Command::SUCCESS);
+
+    $blueprint = Blueprint::query()->where('key', 'service-page')->sole();
+
+    expect($blueprint->name)->toBe('Service page')
+        ->and($blueprint->getRawOriginal('type'))->toBe(BlueprintSubjectEnum::Page->value)
+        ->and($blueprint->status)->toBeTrue();
+});
+
+it('refuses a page type key that already exists or is not a key', function (string $key, string $message): void {
+    Blueprint::query()->create(['type' => BlueprintSubjectEnum::Page, 'key' => 'service-page', 'name' => 'Service page']);
+
+    artisanCommand('capell:make:page-type', ['key' => $key])
+        ->expectsOutputToContain($message)
+        ->assertExitCode(Command::FAILURE);
+
+    expect(Blueprint::query()->where('key', 'service-page')->count())->toBe(1);
+})->with([
+    'duplicate' => ['service-page', 'already exists'],
+    'path' => ['../service', 'lowercase letters, numbers and single dashes'],
+]);
+
+it('writes nothing on a dry run', function (): void {
+    artisanCommand('capell:make:page-type', ['key' => 'case-study', '--dry-run' => true])
+        ->expectsOutputToContain('Dry run: nothing was written.')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect(Blueprint::query()->where('key', 'case-study')->exists())->toBeFalse();
+});
+
+it('creates a layout with the containers of an existing layout', function (): void {
+    $containers = [['key' => 'header', 'widgets' => []], ['key' => 'main', 'widgets' => []]];
+    Layout::factory()->create(['key' => 'standard', 'containers' => $containers]);
+
+    artisanCommand('capell:make:layout', ['key' => 'two-column', '--name' => 'Two column', '--from' => 'standard'])
+        ->expectsOutputToContain('created Layout')
+        ->assertExitCode(Command::SUCCESS);
+
+    $layout = Layout::query()->where('key', 'two-column')->sole();
+
+    expect($layout->name)->toBe('Two column')
+        ->and($layout->containers)->toBe($containers);
+});
+
+it('refuses a layout copied from a layout that does not exist', function (): void {
+    artisanCommand('capell:make:layout', ['key' => 'two-column', '--from' => 'missing'])
+        ->expectsOutputToContain('No layout has the key [missing]')
+        ->assertExitCode(Command::FAILURE);
+
+    expect(Layout::query()->where('key', 'two-column')->exists())->toBeFalse();
+});
+
+it('activates an installed theme for the only site', function (): void {
+    $site = Site::factory()->default()->create();
+    $theme = Theme::factory()->create(['key' => 'aurora', 'name' => 'Aurora', 'status' => false]);
+
+    artisanCommand('capell:theme:activate', ['theme' => 'aurora'])
+        ->expectsOutputToContain('Aurora is now the theme for site ' . $site->getKey())
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($site->refresh()->theme_id)->toBe($theme->getKey())
+        ->and($theme->refresh()->status)->toBeTrue();
+});
+
+it('asks which site to switch when there is more than one', function (): void {
+    $first = Site::factory()->default()->create();
+    $second = Site::factory()->create();
+    Theme::factory()->create(['key' => 'aurora']);
+    $before = $second->theme_id;
+
+    artisanCommand('capell:theme:activate', ['theme' => 'aurora'])
+        ->expectsOutputToContain('Pass --site=<id>')
+        ->assertExitCode(Command::FAILURE);
+
+    expect($second->refresh()->theme_id)->toBe($before);
+
+    artisanCommand('capell:theme:activate', ['theme' => 'aurora', '--site' => [(string) $second->getKey()]])
+        ->assertExitCode(Command::SUCCESS);
+
+    expect($second->refresh()->theme_id)->toBe(Theme::query()->where('key', 'aurora')->value('id'))
+        ->and($first->refresh()->theme_id)->not->toBe($second->theme_id);
+});
+
+it('names the installed themes when the key is unknown', function (): void {
+    Site::factory()->default()->create();
+
+    artisanCommand('capell:theme:activate', ['theme' => 'missing'])
+        ->expectsOutputToContain('No theme has the key [missing]')
+        ->assertExitCode(Command::FAILURE);
+});
+
+it('reads and changes a setting with its declared type', function (): void {
+    artisanCommand('capell:settings:set', ['setting' => 'core.allow_relative_image_urls', 'value' => 'false'])
+        ->expectsOutputToContain('core.allow_relative_image_urls is now false.')
+        ->assertExitCode(Command::SUCCESS);
+
+    expect(resolve(CoreSettings::class)->refresh()->allow_relative_image_urls)->toBeFalse();
+
+    artisanCommand('capell:settings:get', ['setting' => 'core.allow_relative_image_urls', '--json' => true])
+        ->expectsOutputToContain('false')
+        ->assertExitCode(Command::SUCCESS);
+});
+
+it('refuses a setting value of the wrong type or an unknown setting', function (string $setting, string $value, string $message): void {
+    artisanCommand('capell:settings:set', ['setting' => $setting, 'value' => $value])
+        ->expectsOutputToContain($message)
+        ->assertExitCode(Command::FAILURE);
+
+    expect(resolve(CoreSettings::class)->refresh()->allow_relative_image_urls)->toBeTrue();
+})->with([
+    'wrong type' => ['core.allow_relative_image_urls', 'sometimes', 'must be true or false'],
+    'unknown setting' => ['core.missing', 'x', 'have no [missing] setting'],
+    'unknown group' => ['missing.value', 'x', 'No settings group is called [missing]'],
+]);
+
+it('creates a page type through the generic maker command', function (): void {
+    artisanCommand('capell:make', ['maker' => 'core.page-type', '--name' => 'Case study', '--database' => true])
+        ->assertExitCode(Command::SUCCESS);
+
+    expect(Blueprint::query()->where('key', 'case-study')->value('name'))->toBe('Case study');
+});

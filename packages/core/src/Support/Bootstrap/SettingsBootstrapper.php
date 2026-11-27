@@ -37,6 +37,18 @@ final readonly class SettingsBootstrapper
             }
         }
 
+        $this->config->set('settings.settings', $this->settingsClasses());
+    }
+
+    /**
+     * The configured settings classes plus Capell's own and every package's, which is the list
+     * Spatie Laravel Settings loads. Commands read it directly, so they see the same classes
+     * whether or not the configuration has been rebuilt since a package was installed.
+     *
+     * @return list<string>
+     */
+    public function settingsClasses(): array
+    {
         $settings = (array) $this->config->get('settings.settings', []);
 
         foreach ([CoreSettings::class, ThemeStudioSettings::class] as $settingsClass) {
@@ -61,6 +73,6 @@ final readonly class SettingsBootstrapper
             $settings[] = $package->setting;
         }
 
-        $this->config->set('settings.settings', $settings);
+        return array_values(array_filter($settings, is_string(...)));
     }
 }

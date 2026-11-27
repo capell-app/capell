@@ -16,7 +16,7 @@ class MakeBlueprintCommand extends Command
     use DeprecatesMakerAliases;
     use DescribesCommandOptions;
 
-    protected $description = 'Generate a new Capell page blueprint class in App\\Blueprints';
+    protected $description = 'Generate a model class that can carry Capell blueprints, in App\\Blueprints (for a page type editors choose, use capell:make:page-type)';
 
     protected $signature = 'capell:make:blueprint
         {name : The name of the blueprint (e.g. BlogPost)}
@@ -26,7 +26,7 @@ class MakeBlueprintCommand extends Command
 
     public function handle(): int
     {
-        $this->writeCommandIntro('generate a Capell page blueprint', $this->enabledOptionDetails([
+        $this->writeCommandIntro('generate a model that can carry Capell blueprints', $this->enabledOptionDetails([
             'force' => 'overwrite enabled',
         ]));
 
