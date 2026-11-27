@@ -29,10 +29,6 @@ trait HasFrontendAssetsOption
 
         if ($assets !== null && $assets !== []) {
             if (is_string($assets)) {
-                if ($assets === 'default') {
-                    return $this->defaultFrontendAssets();
-                }
-
                 $assetOptions = collect(explode(',', $assets));
             } elseif (is_array($assets)) {
                 $assetOptions = collect($assets);
@@ -50,7 +46,12 @@ trait HasFrontendAssetsOption
 
             throw_if($assetOptions === [], InvalidArgumentException::class, 'The --assets option must contain at least one asset path. Use --assets=default for resources/css/app.css.');
 
-            return $assetOptions;
+            // `default` stands for the conventional asset paths whether the option
+            // arrived as a string, or as a repeatable value (`--assets=*`).
+            return array_values(array_unique(array_merge(...array_map(
+                fn (string $asset): array => $asset === 'default' ? $this->defaultFrontendAssets() : [$asset],
+                $assetOptions,
+            ))));
         }
 
         if (! $this->input->isInteractive() && $this->defaultFrontendAssetsExist()) {
@@ -60,6 +61,7 @@ trait HasFrontendAssetsOption
         $this->requireInteractiveOrFail(
             'Frontend asset paths',
             'Pass --assets=<path-to-app.css>[,<path-to-app.js>] or create resources/css/app.css.',
+            ['default'],
         );
 
         $defaultAssets = $this->defaultFrontendAssets();

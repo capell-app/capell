@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Capell\Core\Actions\Install\CallArtisanCommandAction;
 use Capell\Core\Data\Install\ArtisanCommandResultData;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Page;
 use Capell\Core\Models\Site;
@@ -76,4 +77,14 @@ it('rejects a non-positive count', function (): void {
         '--count' => 0,
         '--force' => true,
     ])->assertExitCode(1);
+});
+
+it('only offers package options the faker command declares when nobody can be asked', function (): void {
+    expect(fn () => artisanCommand('capell:faker', ['--no-interaction' => true, '--force' => true])->run())
+        ->toThrow(function (NonInteractiveInputRequiredException $exception): void {
+            expect($exception->getMessage())
+                ->toContain('Run this command in an interactive terminal to choose packages.')
+                ->not->toContain('--package-mode')
+                ->not->toContain('--packages=');
+        });
 });

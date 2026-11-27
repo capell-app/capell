@@ -254,3 +254,20 @@ it('builds a scaffolded theme on the bundled foundation default theme when no ca
 
     expect($composer['require'])->toHaveKey($bundledDefault['name']);
 });
+
+it('prints the commands that take a new theme from files to a usable theme', function (): void {
+    $workbench = sys_get_temp_dir() . '/capell-make-theme-steps-' . bin2hex(random_bytes(6));
+    mkdir($workbench, 0755, true);
+
+    artisanCommand('capell:make:theme', [
+        'theme' => 'equidynamics',
+        '--path' => $workbench,
+        '--local' => true,
+    ])
+        ->expectsOutputToContain('Next steps:')
+        ->expectsOutputToContain('composer config repositories.equidynamics-theme path ' . $workbench . '/equidynamics-theme')
+        ->expectsOutputToContain('composer require app/equidynamics-theme:1.x-dev')
+        ->expectsOutputToContain('php artisan capell:theme:doctor equidynamics --path=' . $workbench . '/equidynamics-theme')
+        ->expectsOutputToContain('php artisan capell:install --theme=equidynamics')
+        ->assertExitCode(Command::SUCCESS);
+});
