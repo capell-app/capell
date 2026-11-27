@@ -4,20 +4,26 @@ declare(strict_types=1);
 
 namespace Capell\Core\Contracts\Privacy;
 
+use Capell\Core\Enums\ConsentDecision;
+
 /**
- * Implemented by a ConsentDecisionLookup whose decisions carry a revision: a number that only ever increases as
- * decisions are recorded. Queued work stamps the revision of the grant it was queued under, then, at send time, asks
- * whether a refusal has been recorded since. A later grant never hides that refusal, and a refusal heard late never
- * cancels work queued under a newer grant (ConsentDecisionsChanged carries the refusal's revision).
+ * Implemented by a ConsentDecisionLookup whose stored decisions have stable, increasing IDs. Queued work that acts on a
+ * grant records the ID of the latest stored decision when it is queued, and only while that decision is a grant. When it
+ * runs it asks again, and acts only when the latest stored decision is still that same grant: any newer decision,
+ * granted or refused, or a stamped decision that no longer exists, means it must not act.
  *
- * A lookup that does not implement it gives queued work no revision boundary, so integrations that need one must not
- * send under it.
+ * ConsentDecisionsChanged carries the first ID its save wrote, so a listener that clears queued work clears only work
+ * stamped before that save.
+ *
+ * A lookup that does not implement it gives queued work nothing to match, so integrations that need it must not act.
  */
 interface RevisesConsentDecisions
 {
-    /** The revision of the subject's latest recorded decision for a ConsentCategory value on this site; null when none. */
-    public function latestRevision(string $subject, string $category, ?int $siteId): ?int;
-
-    /** Whether a refusal of the category on this site has been recorded for the subject after the given revision. */
-    public function refusedSince(string $subject, string $category, ?int $siteId, int $revision): bool;
+    /**
+     * The subject's latest stored decision for a ConsentCategory value on this site, judged as decisionFor() judges it,
+     * with that decision's ID; null when none is stored.
+     *
+     * @return array{id: int, decision: ConsentDecision}|null
+     */
+    public function latestDecision(string $subject, ?int $siteId, string $category): ?array;
 }

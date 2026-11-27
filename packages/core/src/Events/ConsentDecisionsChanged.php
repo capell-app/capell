@@ -14,9 +14,9 @@ use Capell\Core\Enums\ConsentDecision;
  * Decisions are keyed by consent category. A category the manager did not report is Undecided, which analytics and
  * marketing signals treat as refused.
  *
- * The revision, when the manager implements RevisesConsentDecisions, is the latest revision this save stands at. A
- * listener that cancels queued work on a refusal cancels only work stamped with an older revision, so a refusal heard
- * after a newer grant never cancels the work that grant queued. Null means the manager has no revisions.
+ * The revision, when the manager implements RevisesConsentDecisions, is the first decision ID this save wrote, taken
+ * inside the save. A listener that clears queued work clears only work stamped with an older ID, so a refusal heard late
+ * never clears work a newer grant queued. Null means the save wrote nothing new, or the manager has no revisions.
  */
 final readonly class ConsentDecisionsChanged
 {
