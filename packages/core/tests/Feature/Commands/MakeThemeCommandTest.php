@@ -11,6 +11,7 @@ use Capell\Core\Support\Packages\BundledFoundationCatalogue;
 use Capell\Core\Testing\ExtensionTestHarness;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Tests\Support\OwnedApplicationPaths;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
 use Symfony\Component\Console\Command\Command;
 
@@ -266,8 +267,19 @@ it('prints the commands that take a new theme from files to a usable theme', fun
     ])
         ->expectsOutputToContain('Next steps:')
         ->expectsOutputToContain('composer config repositories.equidynamics-theme path ' . $workbench . '/equidynamics-theme')
-        ->expectsOutputToContain('composer require app/equidynamics-theme:1.x-dev')
+        ->expectsOutputToContain('composer require app/equidynamics-theme:@dev')
         ->expectsOutputToContain('php artisan capell:theme:doctor equidynamics --path=' . $workbench . '/equidynamics-theme')
         ->expectsOutputToContain('php artisan capell:install --theme=equidynamics')
         ->assertExitCode(Command::SUCCESS);
+});
+
+it('installs the theme before checking it with the doctor', function (): void {
+    $workbench = sys_get_temp_dir() . '/capell-make-theme-order-' . bin2hex(random_bytes(6));
+    mkdir($workbench, 0755, true);
+
+    Artisan::call('capell:make:theme', ['theme' => 'equidynamics', '--path' => $workbench, '--local' => true]);
+    $output = Artisan::output();
+
+    expect(strpos($output, 'capell:install --theme=equidynamics'))->toBeInt()
+        ->toBeLessThan(strpos($output, 'capell:theme:doctor equidynamics'));
 });
