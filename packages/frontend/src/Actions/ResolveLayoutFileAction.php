@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Capell\Frontend\Actions;
 
 use Capell\Core\Models\Layout;
+use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
@@ -15,6 +16,7 @@ use Lorisleiva\Actions\Concerns\AsObject;
  */
 final class ResolveLayoutFileAction
 {
+    use AsFake;
     use AsObject;
 
     public function handle(?Layout $layout): string
