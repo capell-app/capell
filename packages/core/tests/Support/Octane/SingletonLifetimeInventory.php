@@ -97,6 +97,7 @@ use Capell\Core\ThemeStudio\Theme\PagePresentationRegistry;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Capell\Core\ThemeStudio\Theme\WidgetPresentationRegistry;
 use Capell\Frontend\Contracts\FrontendContextReader;
+use Capell\Frontend\Support\Application\ApplicationAreaRegistry;
 use Capell\Frontend\Support\Assets\DefaultFrontendResourcePlanRenderer;
 use Capell\Frontend\Support\Assets\FrontendAssetsService;
 use Capell\Frontend\Support\Assets\FrontendPackageDependencyRegistry;
@@ -247,6 +248,7 @@ final class SingletonLifetimeInventory
             ThemeViewRegistrar::class => self::tagged('View finder namespace hints are restored after every operation.'),
             FrontendLocaleScope::class => self::tagged('The incoming application and Carbon locale are captured for the served site language and restored after every operation.'),
             FrontendRouteMiddlewareRegistry::class => self::boot('Route middleware declarations are package boot registrations.'),
+            ApplicationAreaRegistry::class => self::boot('Application areas are host and package boot registrations.'),
             FrontendResourceRegistry::class => self::boot('Frontend resources are package boot registrations.'),
             FrontendPackageDependencyRegistry::class => self::boot('Frontend package dependencies are package boot registrations.'),
             FrontendViteInputRegistry::class => self::boot('Vite inputs are package boot registrations.'),
