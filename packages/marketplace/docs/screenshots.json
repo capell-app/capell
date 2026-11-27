@@ -123,6 +123,34 @@
                 }
             ],
             "notes": "Shows the external documentation CTA beside install eligibility, licence state, Marketplace access actions, version history, and feedback controls."
+        },
+        {
+            "id": "marketplace-extension-detail-connect-account",
+            "title": "Marketplace extension detail asking to connect a Capell account.",
+            "package": "marketplace",
+            "surface": "admin",
+            "targetType": "admin-surface",
+            "target": "MarketplaceExtensionDetailPage",
+            "scenario": "admin-index",
+            "url": "/extensions/marketplace/link-checker",
+            "waitFor": "[data-capell-marketplace-connect-account]",
+            "docsPage": "packages/marketplace/README.md",
+            "output": "packages/marketplace/docs/images/screenshots/marketplace-extension-detail-connect-account.png",
+            "required": true,
+            "capture": {
+                "fullPage": false
+            },
+            "interactions": [
+                {
+                    "type": "scrollIntoView",
+                    "selector": "[data-capell-marketplace-connect-account]",
+                    "block": "center"
+                }
+            ],
+            "notes": "Uses the screenshot workbench's link-checker listing: a paid extension the site holds no licence for, on a site that has not connected a Capell account. The install panel explains why install is unavailable and offers the Set up account action (ConnectMarketplaceAccountAction), which starts the account connection and redirects to Capell App.",
+            "covers": [
+                "packages/marketplace/src/Filament/Pages/MarketplaceExtensionDetailPage.php"
+            ]
         }
     ]
 }

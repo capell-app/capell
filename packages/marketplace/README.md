@@ -86,6 +86,10 @@ Extension detail pages include a collapsed manual install option for hosts where
 
 Account linking is the trust path for protected extensions. An admin connects a Capell account, approves the connection in Capell App, returns to `/admin/extensions`, and the Extensions page opens the Marketplace setup cockpit for install readiness. Free extensions do not require a connected account.
 
+When a protected extension cannot be installed because the site has no connected account, its detail page explains why and offers **Set up account** in the install panel, which connects the site to a Capell account.
+
+[![Extension detail page offering Set up account in the install panel](docs/images/screenshots/marketplace-extension-detail-connect-account.png)](docs/images/screenshots/marketplace-extension-detail-connect-account.png)
+
 ## Data And Security
 
 Marketplace creates its own tables. Its current tables are `marketplace_instances`, `marketplace_update_advisory_snapshots`, `marketplace_update_notice_dismissals`, `marketplace_client_connection_sessions`, `marketplace_install_flow_sessions`, `marketplace_install_attempts`, the append-only `marketplace_install_attempt_events` timeline, and legacy `marketplace_install_intents`. Older installations may retain legacy domain tables, but this package no longer reads them for install access.

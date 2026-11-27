@@ -96,6 +96,67 @@ final class MarketplaceFixture
         ];
     }
 
+    /**
+     * A paid extension this site holds no licence for, on a site that has not
+     * been connected to a Capell account: the install panel's only way forward
+     * is the Connect Marketplace account action.
+     *
+     * @return array{data: array<string, mixed>}
+     */
+    public static function connectAccountResponse(string $webUrl): array
+    {
+        $baseUrl = rtrim($webUrl, '/');
+
+        return [
+            'data' => [
+                'slug' => 'link-checker',
+                'name' => 'Link Checker',
+                'display_name' => 'Link Checker',
+                'composer_name' => 'capell-app/link-checker',
+                'kind' => 'plugin',
+                'description' => 'Finds broken internal and external links before visitors do.',
+                'documentation_url' => $baseUrl . '/docs/marketplace/link-checker',
+                'purchase_url' => $baseUrl . '/extensions/link-checker',
+                'price_cents' => 2900,
+                'is_paid' => true,
+                'latest_version' => '1.4.0',
+                'released_at' => '2026-06-12',
+                'publisher_name' => 'Capell',
+                'publisher_verified' => true,
+                'security_reviewed' => true,
+                'categories' => ['seo', 'operations'],
+                'capell_version_constraint' => '^4.0',
+                'laravel_version_constraint' => '^13.0',
+                'filament_version_constraint' => '^5.0',
+                'ratings_summary' => ['average' => 4.4, 'count' => 17],
+                'comments_summary' => ['count' => 5],
+                'surfaces' => ['admin'],
+                'contribution_summary' => [
+                    'admin-page' => 1,
+                ],
+                'documentation' => [
+                    [
+                        'title' => 'Setup guide',
+                        'url' => $baseUrl . '/docs/marketplace/link-checker/setup',
+                        'private' => false,
+                    ],
+                ],
+                'version_history' => [
+                    ['version' => '1.4.0', 'released_at' => '2026-06-12'],
+                    ['version' => '1.3.0', 'released_at' => '2026-04-02'],
+                ],
+                'health_status' => 'ok',
+                'licence' => [
+                    'licence_status' => 'none',
+                    'can_comment' => false,
+                    'can_rate' => false,
+                    'can_download' => false,
+                    'can_install' => false,
+                ],
+            ],
+        ];
+    }
+
     public static function imagePath(string $image): string
     {
         $directory = dirname(__DIR__, 2) . '/database/screenshot-gallery/';

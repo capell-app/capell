@@ -117,6 +117,10 @@ final class ScreenshotWorkbenchServiceProvider extends ServiceProvider
                 MarketplaceFixture::extensionResponse($webUrl),
                 200,
             ),
+            $baseUrl . '/extensions/link-checker' => static fn () => Http::response(
+                MarketplaceFixture::connectAccountResponse($webUrl),
+                200,
+            ),
         ]);
 
         // Runtime-role tests also boot this provider; screenshot-only series
