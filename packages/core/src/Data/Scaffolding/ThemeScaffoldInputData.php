@@ -83,11 +83,12 @@ final readonly class ThemeScaffoldInputData
 
         return [
             sprintf('composer config repositories.%s path %s', $this->slug, $directory),
-            sprintf('composer require %s:1.x-dev', $this->packageName),
+            // A path repository outside a Git checkout has no 1.x branch; Composer versions it as dev-main, which @dev accepts.
+            sprintf('composer require %s:@dev', $this->packageName),
             'php artisan capell:package-cache:clear',
             'php artisan capell:frontend-tailwind-assets',
-            sprintf('php artisan capell:theme:doctor %s --path=%s', $this->themeKey, $directory),
             sprintf('php artisan capell:install --theme=%s', $this->themeKey),
+            sprintf('php artisan capell:theme:doctor %s --path=%s', $this->themeKey, $directory),
         ];
     }
 
