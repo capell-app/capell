@@ -12,7 +12,7 @@ return [
     'scan_failures' => ':count checks or sources could not finish. Ask a server administrator to investigate.',
     'fix_result' => 'Fixes: :applied applied, :failed failed, :skipped skipped.',
     'severity' => 'Severity', 'finding' => 'Finding', 'source' => 'Source', 'package' => 'Package',
-    'first_seen' => 'First seen', 'last_seen' => 'Last seen', 'status' => 'Status', 'automatic_fix' => 'Automatic fix',
+    'first_seen' => 'First seen', 'first_seen_on' => 'First seen :date', 'finding_actions' => 'Approve, fix, dismiss or reopen this finding', 'last_seen' => 'Last seen', 'status' => 'Status', 'automatic_fix' => 'Automatic fix',
     'no_findings' => 'No findings recorded yet. Run a scan to check for weaknesses.',
     'no_matching_findings' => 'No findings match these filters',
     'outcomes' => ['applied' => 'Applied', 'applied_pending_nodes' => 'Applied here, waiting for other servers', 'failed' => 'Failed', 'skipped' => 'Skipped'],

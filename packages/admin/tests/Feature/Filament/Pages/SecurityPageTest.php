@@ -25,6 +25,7 @@ use Capell\Core\Support\Security\SecurityEvidence;
 use Capell\Core\Support\Security\SecurityWeaknessRegistry;
 use Capell\Tests\Support\Concerns\CreatesAdminUser;
 use Carbon\CarbonImmutable;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
 
@@ -377,4 +378,22 @@ it('labels every remediation outcome in plain words', function (): void {
     foreach (SecurityRemediationOutcome::cases() as $outcome) {
         expect(SecurityLabels::outcome($outcome))->not->toContain('capell-admin::');
     }
+});
+
+it('fits the findings table into six columns and one row menu without losing the fix state or first sighting', function (): void {
+    securityUser(true);
+    securityRemediation();
+    $high = securityFinding(['severity' => 'high', 'title' => 'High finding', 'first_detected_at' => CarbonImmutable::parse('2026-11-01 09:30:00')]);
+    securityApproval(['approved_by' => 42]);
+
+    $component = Livewire::test(SecurityPage::class);
+    $table = $component->instance()->getTable();
+    $inlineActions = collect($table->getRecordActions());
+
+    expect(array_keys($table->getColumns()))->toBe(['severity', 'title', 'source', 'composer_name', 'last_detected_at', 'status'])
+        ->and($inlineActions)->toHaveCount(2)
+        ->and($inlineActions->first()->getName())->toBe('evidence')
+        ->and($inlineActions->last())->toBeInstanceOf(ActionGroup::class);
+    $component->assertSee('Approved by user 42')->assertSee(__('capell-admin::security.first_seen_on', ['date' => '2026-11-01 09:30:00']))
+        ->assertTableActionVisible('fixNow', $high);
 });
