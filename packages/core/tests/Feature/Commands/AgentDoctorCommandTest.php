@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Capell\Core\Actions\Diagnostics\BuildAgentDoctorReportAction;
 use Capell\Core\Data\PageTypeData;
 use Capell\Core\Enums\ExtensionContributionType;
 use Capell\Core\Facades\CapellCore;
@@ -59,6 +60,14 @@ it('tells an agent how to get MCP when Agent Bridge is missing', function (): vo
     expect($mcp['agentBridge'])->toBeFalse()
         ->and($mcp['status'])->toBe('missing')
         ->and($mcp['nextStep'])->toBe('composer require capell-app/agent-bridge');
+});
+
+it('asks for laravel/mcp, not another Agent Bridge install, when Agent Bridge is already installed into Capell', function (): void {
+    expect(BuildAgentDoctorReportAction::mcpStatus(laravelMcp: false, agentBridgeInCapell: true, agentBridgeInComposer: true))
+        ->toMatchArray(['agentBridge' => true, 'status' => 'missing-laravel-mcp', 'nextStep' => 'composer require laravel/mcp'])
+        ->and(BuildAgentDoctorReportAction::mcpStatus(laravelMcp: true, agentBridgeInCapell: false, agentBridgeInComposer: true))
+        ->toMatchArray(['status' => 'not-installed-into-capell'])
+        ->and(BuildAgentDoctorReportAction::mcpStatus(laravelMcp: true, agentBridgeInCapell: true, agentBridgeInComposer: true)['status'])->toBe('ready');
 });
 
 it('prints a readable summary without the JSON flag', function (): void {
