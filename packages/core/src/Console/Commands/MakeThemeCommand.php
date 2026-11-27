@@ -110,7 +110,7 @@ final class MakeThemeCommand extends Command
 
         $namespace = $this->namespaceForPackage($packageName);
 
-        ScaffoldThemePackageAction::run(new ThemeScaffoldInputData(
+        $input = new ThemeScaffoldInputData(
             packageName: $packageName,
             namespace: $namespace,
             slug: Str::of($packageName)->after('/')->replace('_', '-')->slug()->toString(),
@@ -121,10 +121,17 @@ final class MakeThemeCommand extends Command
             local: $this->option('local') === true,
             projectRoot: getcwd() ?: null,
             baseThemePackage: $baseThemePackage,
-        ));
+        );
+        ScaffoldThemePackageAction::run($input);
 
         $this->info(sprintf('Created Capell theme: %s', $themeKey));
         $this->line($targetDirectory);
+        $this->newLine();
+        $this->line('Next steps:');
+
+        foreach ($input->nextSteps() as $step) {
+            $this->line('  ' . $step);
+        }
 
         return CommandAlias::SUCCESS;
     }

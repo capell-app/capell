@@ -18,7 +18,27 @@ final readonly class PackageScaffoldInputData
         public PackageScaffoldProfile $profile,
         /** The package that declares the scaffold-full-profile role; the full profile builds on it. */
         public ?string $profilePackage = null,
+        public ?string $projectRoot = null,
     ) {}
+
+    /**
+     * The commands that take a freshly scaffolded package from files on disk to an installed
+     * extension, in the order to run them.
+     *
+     * @return array<int, string>
+     */
+    public function nextSteps(): array
+    {
+        $directory = $this->packageDirectory();
+        $argument = preg_match('/\A[A-Za-z0-9._\/-]+\z/', $directory) === 1 ? $directory : escapeshellarg($directory);
+
+        return [
+            sprintf('composer config repositories.%s path %s', $this->slug, $argument),
+            sprintf('composer require %s:@dev', $this->packageName),
+            sprintf('php artisan capell:extension-install %s', $this->packageName),
+            sprintf('cd %s && composer install && composer test', $argument),
+        ];
+    }
 
     /**
      * @return array<string, string>
@@ -45,6 +65,20 @@ final readonly class PackageScaffoldInputData
             '{{ widgetKey }}' => str_replace('/', '.', $this->packageName),
             '{{ profilePackage }}' => $this->profilePackage ?? '',
         ];
+    }
+
+    /** The package directory as the host project should refer to it: relative to the project root when inside it. */
+    private function packageDirectory(): string
+    {
+        $target = rtrim(str_replace('\\', '/', $this->targetPath), '/');
+
+        if ($this->projectRoot === null) {
+            return $target;
+        }
+
+        $root = rtrim(str_replace('\\', '/', $this->projectRoot), '/');
+
+        return str_starts_with($target, $root . '/') ? substr($target, strlen($root) + 1) : $target;
     }
 
     private function jsonStringValue(string $value): string

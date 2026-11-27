@@ -36,13 +36,14 @@ trait PromptsWithOptionFallback
      *
      * @param  string  $requirement  Human-readable name of what's missing (e.g. "Site URL").
      * @param  string  $hint  Optional trailing hint, e.g. "Pass --url=<url>.".
+     * @param  array<int, string>  $validValues  The values the caller can pass, listed in the refusal so a script or agent can retry without guessing.
      */
-    protected function requireInteractiveOrFail(string $requirement, string $hint = ''): void
+    protected function requireInteractiveOrFail(string $requirement, string $hint = '', array $validValues = []): void
     {
         if ($this->input->isInteractive()) {
             return;
         }
 
-        throw new NonInteractiveInputRequiredException($requirement, $hint);
+        throw new NonInteractiveInputRequiredException($requirement, $hint, $validValues);
     }
 }

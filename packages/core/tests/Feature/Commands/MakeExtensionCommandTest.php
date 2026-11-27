@@ -417,3 +417,19 @@ it('fails the generated suite when the package breaks the companion package cont
     expect($process->getExitCode())->not->toBe(0)
         ->and($process->getOutput() . $process->getErrorOutput())->toContain('[public-output.views]');
 });
+
+it('prints the commands that take a new package from files to an installed extension', function (): void {
+    $packagesDirectory = makeExtensionWorkbenchDirectory();
+
+    artisanCommand('capell:make:extension', [
+        'package' => 'vendor/next-steps',
+        '--profile' => 'minimal',
+        '--path' => $packagesDirectory,
+        '--no-interaction' => true,
+    ])
+        ->expectsOutputToContain('Next steps:')
+        ->expectsOutputToContain('composer config repositories.next-steps path ' . $packagesDirectory . '/next-steps')
+        ->expectsOutputToContain('composer require vendor/next-steps:@dev')
+        ->expectsOutputToContain('php artisan capell:extension-install vendor/next-steps')
+        ->assertExitCode(Command::SUCCESS);
+});
