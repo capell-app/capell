@@ -13,6 +13,10 @@ use Capell\Core\Enums\ConsentDecision;
  *
  * Decisions are keyed by consent category. A category the manager did not report is Undecided, which analytics and
  * marketing signals treat as refused.
+ *
+ * The revision, when the manager implements RevisesConsentDecisions, is the first decision ID this save wrote, taken
+ * inside the save. A listener that clears queued work clears only work stamped with an older ID, so a refusal heard late
+ * never clears work a newer grant queued. Null means the save wrote nothing new, or the manager has no revisions.
  */
 final readonly class ConsentDecisionsChanged
 {
@@ -23,6 +27,7 @@ final readonly class ConsentDecisionsChanged
         public string $subject,
         public ?int $siteId,
         public array $decisions,
+        public ?int $revision = null,
     ) {}
 
     public function decisionFor(string $category): ConsentDecision

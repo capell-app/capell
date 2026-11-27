@@ -21,3 +21,11 @@ it('tells a listener the saved decisions and treats a category the manager did n
         ->and($heard?->decisionFor('functional'))->toBe(ConsentDecision::Granted)
         ->and($heard?->decisionFor('marketing'))->toBe(ConsentDecision::Undecided);
 });
+
+it('keeps the revision optional, so a consent manager without revisions dispatches the event unchanged', function (): void {
+    // Bug caught: a required revision would break every existing consent manager's three-argument dispatch.
+    $withoutRevision = new ConsentDecisionsChanged('subject-1', 7, ['analytics' => ConsentDecision::Denied]);
+    $withRevision = new ConsentDecisionsChanged('subject-1', 7, ['analytics' => ConsentDecision::Denied], 42);
+
+    expect($withoutRevision->revision)->toBeNull()->and($withRevision->revision)->toBe(42);
+});
