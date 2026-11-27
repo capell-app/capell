@@ -249,7 +249,11 @@ class SetupCommand extends Command
                     ->mapWithKeys(fn (AdminPanelCandidateData $candidate): array => [$candidate->label() => $candidate->label()])
                     ->all();
 
-                $this->requireInteractiveOrFail('Filament panel', 'Pass --panel=<panel>.');
+                $this->requireInteractiveOrFail(
+                    'Filament panel',
+                    'Pass --panel=<panel>.',
+                    $panels->map(fn (AdminPanelCandidateData $candidate): string => $candidate->relativePath)->values()->all(),
+                );
 
                 $selectedLabel = select(
                     label: 'Which Filament panel should Capell Admin integrate with?',

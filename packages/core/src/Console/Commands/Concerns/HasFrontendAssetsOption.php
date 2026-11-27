@@ -60,6 +60,7 @@ trait HasFrontendAssetsOption
         $this->requireInteractiveOrFail(
             'Frontend asset paths',
             'Pass --assets=<path-to-app.css>[,<path-to-app.js>] or create resources/css/app.css.',
+            ['default'],
         );
 
         $defaultAssets = $this->defaultFrontendAssets();

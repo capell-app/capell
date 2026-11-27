@@ -115,7 +115,7 @@ final class MakeExtensionCommand extends Command
         $slug = Str::of($packageName)->after('/')->replace('_', '-')->slug()->toString();
         $tier = $this->option('premium') === true ? 'premium' : 'free';
 
-        ScaffoldPackageAction::run(new PackageScaffoldInputData(
+        $input = new PackageScaffoldInputData(
             packageName: $packageName,
             namespace: $namespace,
             slug: $slug,
@@ -124,12 +124,28 @@ final class MakeExtensionCommand extends Command
             targetPath: $targetDirectory,
             profile: $profile,
             profilePackage: $profilePackage,
-        ));
+            projectRoot: getcwd() ?: null,
+        );
+        ScaffoldPackageAction::run($input);
 
         $this->info(sprintf('Created Capell package: %s', $packageName));
         $this->line($targetDirectory);
+        $this->renderNextSteps($input->nextSteps());
 
         return CommandAlias::SUCCESS;
+    }
+
+    /**
+     * @param  array<int, string>  $steps
+     */
+    private function renderNextSteps(array $steps): void
+    {
+        $this->newLine();
+        $this->line('Next steps:');
+
+        foreach ($steps as $step) {
+            $this->line('  ' . $step);
+        }
     }
 
     private function resolvePackageName(): ?string

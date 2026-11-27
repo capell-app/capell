@@ -71,6 +71,26 @@ final readonly class ThemeScaffoldInputData
         return str_starts_with($target, $root . '/') ? substr($target, strlen($root) + 1) : $target;
     }
 
+    /**
+     * The commands that take a freshly scaffolded theme from files on disk to a theme the
+     * site can use, in the order to run them.
+     *
+     * @return array<int, string>
+     */
+    public function nextSteps(): array
+    {
+        $directory = $this->shellArgument($this->packageDirectory());
+
+        return [
+            sprintf('composer config repositories.%s path %s', $this->slug, $directory),
+            sprintf('composer require %s:1.x-dev', $this->packageName),
+            'php artisan capell:package-cache:clear',
+            'php artisan capell:frontend-tailwind-assets',
+            sprintf('php artisan capell:theme:doctor %s --path=%s', $this->themeKey, $directory),
+            sprintf('php artisan capell:install --theme=%s', $this->themeKey),
+        ];
+    }
+
     public function isOutsideProject(): bool
     {
         return $this->packageDirectory() === $this->normalisedPath($this->targetPath);

@@ -62,6 +62,9 @@ it('fails with actionable frontend asset option errors in non-interactive instal
 
         expect(fn (): ?array => frontendAssetsForOptionValue(null, interactive: false))
             ->toThrow(RuntimeException::class, 'Frontend asset paths is required in non-interactive mode.');
+
+        expect(fn (): ?array => frontendAssetsForOptionValue(null, interactive: false))
+            ->toThrow(RuntimeException::class, 'Valid values: default.');
     } finally {
         if ($originalContents !== null) {
             File::ensureDirectoryExists(dirname($assetPath));

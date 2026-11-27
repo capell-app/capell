@@ -84,7 +84,11 @@ trait HasPackageSelection
         } elseif ($packageMode === self::PACKAGE_MODE_CORE) {
             $packageOptions = $this->corePromptPackages($availablePackages)->keys();
         } else {
-            $this->requireInteractiveOrFail('Package selection', 'Pass --packages=<package-name,package-name>.');
+            $this->requireInteractiveOrFail(
+                'Package selection',
+                'Pass --packages=<package-name,package-name>, or --package-mode=core or --package-mode=all.',
+                $this->packageSelectionPromptPackages($availablePackages)->keys()->values()->map(strval(...))->all(),
+            );
 
             $packageOptions = $this->promptForPackages($availablePackages);
         }

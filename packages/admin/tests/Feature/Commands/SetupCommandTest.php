@@ -10,6 +10,7 @@ use Capell\Admin\Support\Setup\TailwindSourceRegistrar;
 use Capell\Admin\Tests\Support\AdminPanelProviderFixtures;
 use Capell\Core\Actions\FindPageUrlsMissingSiteDomainsAction;
 use Capell\Core\Enums\PackageTypeEnum;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Capell\Core\Facades\CapellCore;
 use Capell\Core\Models\Language;
 use Capell\Core\Models\PageUrl;
@@ -355,6 +356,24 @@ it('prompts for a target panel when more than one Filament panel is discovered',
         ->expectsOutputToContain('Filament panel: app/Providers/Filament/BlogPanelProvider.php')
         ->expectsOutput('Preview mode: no files were written.')
         ->assertExitCode(0);
+});
+
+it('names the discovered panels when more than one exists and nobody can be asked', function (): void {
+    writeSetupCommandPanelProvider();
+    File::put(app_path('Providers/Filament/BlogPanelProvider.php'), str_replace(
+        ['AdminPanelProvider', "->id('admin')", "->path('admin')"],
+        ['BlogPanelProvider', "->id('blog')", "->path('blog')"],
+        AdminPanelProviderFixtures::clean(),
+    ));
+
+    expect(fn () => artisanCommand('capell:admin-setup', [
+        '--integration-only' => true,
+        '--preview' => true,
+        '--no-interaction' => true,
+    ])->run())->toThrow(
+        NonInteractiveInputRequiredException::class,
+        'Valid values: app/Providers/Filament/AdminPanelProvider.php, app/Providers/Filament/BlogPanelProvider.php.',
+    );
 });
 
 it('normalises array based setup list options for install callers', function (): void {

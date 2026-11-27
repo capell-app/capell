@@ -12,6 +12,7 @@ use Capell\Core\Contracts\Makers\Maker;
 use Capell\Core\Contracts\Makers\MakerRegistryInterface;
 use Capell\Core\Data\Makers\MakerFileData;
 use Capell\Core\Data\Makers\MakerInputData;
+use Capell\Core\Exceptions\NonInteractiveInputRequiredException;
 use Illuminate\Console\Command;
 
 use function Laravel\Prompts\select;
@@ -61,31 +62,46 @@ class MakeCommand extends Command
             'force' => 'overwrite enabled',
         ]));
 
-        $makerArgument = $this->argument('maker');
-        $maker = is_string($makerArgument) && $makerArgument !== ''
-            ? $makerArgument
-            : $this->resolveMaker($registry);
+        try {
+            $maker = $this->resolveRegisteredMaker($registry);
 
-        $values = [
-            'name' => $this->resolveName(),
-            'type' => $this->option('type'),
-            'source' => $this->option('source'),
-            'livewire' => $this->option('livewire'),
-        ];
+            if ($maker === null) {
+                return static::FAILURE;
+            }
+
+            $values = [
+                'name' => $this->resolveName(),
+                'type' => $this->option('type'),
+                'source' => $this->option('source'),
+                'livewire' => $this->option('livewire'),
+            ];
+        } catch (NonInteractiveInputRequiredException $nonInteractiveInputRequiredException) {
+            $this->error($nonInteractiveInputRequiredException->getMessage());
+
+            return static::FAILURE;
+        }
 
         if ($this->option('dry-run')) {
-            $preview = PreviewMakerAction::run(
-                maker: $maker,
-                values: $values,
-                force: $this->option('force'),
-                databaseWrites: $this->option('database'),
-            );
+            try {
+                $preview = PreviewMakerAction::run(
+                    maker: $maker,
+                    values: $values,
+                    force: $this->option('force'),
+                    databaseWrites: $this->option('database'),
+                );
+            } catch (Throwable $throwable) {
+                $this->error($throwable->getMessage());
+
+                return static::FAILURE;
+            }
 
             $this->line($maker);
             $this->renderFiles($preview->files);
             foreach ($preview->commands as $command) {
                 $this->line($command);
             }
+
+            $this->renderNextSteps($preview->notes);
 
             return static::SUCCESS;
         }
@@ -105,21 +121,45 @@ class MakeCommand extends Command
         }
 
         $this->renderFiles($result->files);
-        foreach ($result->notes as $note) {
-            $this->line($note);
-        }
+        $this->renderNextSteps($result->notes);
 
         return $result->successful ? static::SUCCESS : static::FAILURE;
     }
 
-    private function resolveMaker(MakerRegistryInterface $registry): string
+    /**
+     * Resolve the maker key the caller named. A key nobody registered is reported with the
+     * keys that do exist, so a mistyped key never ends in a stack trace; null means it was.
+     *
+     * @throws NonInteractiveInputRequiredException
+     */
+    private function resolveRegisteredMaker(MakerRegistryInterface $registry): ?string
     {
-        $this->requireInteractiveOrFail('Maker', 'Pass a maker argument.');
+        $makerArgument = $this->argument('maker');
+        $keys = $registry->all()
+            ->map(fn (Maker $registeredMaker): string => $registeredMaker->definition()->key)
+            ->values()
+            ->all();
 
-        return (string) select(
-            label: 'Which maker should run?',
-            options: $registry->all()->map(fn (Maker $registeredMaker): string => $registeredMaker->definition()->key)->all(),
-        );
+        if (! is_string($makerArgument) || $makerArgument === '') {
+            $this->requireInteractiveOrFail('Maker', 'Pass a maker argument, or run php artisan capell:make --list to see what each one makes.', $keys);
+
+            return (string) select(
+                label: 'Which maker should run?',
+                options: $keys,
+            );
+        }
+
+        if (! $registry->has($makerArgument)) {
+            $this->error(sprintf(
+                'Maker [%s] is not registered. Valid makers: %s. Run php artisan capell:make --list to see what each one makes.',
+                $makerArgument,
+                implode(', ', $keys),
+            ));
+
+            return null;
+        }
+
+        return $makerArgument;
     }
 
     private function resolveName(): string
@@ -130,12 +170,22 @@ class MakeCommand extends Command
             return $name;
         }
 
-        $this->requireInteractiveOrFail('Name', 'Pass --name=<name>.');
+        $this->requireInteractiveOrFail('Name', 'Pass --name=<name>, for example --name=HeroBanner.');
 
         return text(
             label: 'Name',
             required: true,
         );
+    }
+
+    /**
+     * @param  iterable<string>  $notes
+     */
+    private function renderNextSteps(iterable $notes): void
+    {
+        foreach ($notes as $note) {
+            $this->line($note);
+        }
     }
 
     /**
