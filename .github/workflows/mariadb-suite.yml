@@ -1,6 +1,6 @@
 name: MariaDB proofs
 
-# Runs the opt-in proofs in phpunit.mariadb.xml against MariaDB 10.11, the engine production
+# Runs the opt-in proofs in phpunit.mariadb.xml against MariaDB 11.8, the engine production
 # runs. They need a real server (row locks on separate connections, legacy timestamp
 # semantics, the mariadb driver's native UUID columns), so the SQLite suites cannot run them.
 # It runs in the merge queue and after merges to main rather than on every PR push, and
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   mariadb-proofs:
-    name: Opt-in proofs on MariaDB 10.11
+    name: Opt-in proofs on MariaDB 11.8
     runs-on: ubuntu-latest
     # A hang ceiling only, never a speed assertion.
     timeout-minutes: 20
@@ -34,7 +34,7 @@ jobs:
       PAO_DISABLE: 1
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:11.8
         env:
           MARIADB_ROOT_PASSWORD: root
           # The lock proofs refuse any database but this disposable one.

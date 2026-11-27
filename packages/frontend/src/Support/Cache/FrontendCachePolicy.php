@@ -6,11 +6,16 @@ namespace Capell\Frontend\Support\Cache;
 
 use Capell\Frontend\Contracts\FrontendContextReader;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 final class FrontendCachePolicy
 {
-    public function shouldCache(FrontendContextReader $context, Request $request): bool
+    public function shouldCache(FrontendContextReader $context, Request $request, ?Response $response = null): bool
     {
+        if (PrivateFrontendResponse::isMarked($request, $response)) {
+            return false;
+        }
+
         if ($request->method() !== 'GET') {
             return false;
         }

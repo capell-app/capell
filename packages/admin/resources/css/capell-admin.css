@@ -28,6 +28,11 @@
         align-items: flex-start;
     }
 
+    /* The explanatory line repeats the label in a tile this narrow; the count and colour carry it. */
+    .capell-extension-stat .fi-wi-stats-overview-stat-description {
+        display: none;
+    }
+
     .capell-extension-stat .fi-wi-stats-overview-stat-label {
         min-width: 0;
         font-size: 0.75rem;

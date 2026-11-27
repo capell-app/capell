@@ -36,6 +36,26 @@ it('accepts a minimal manifest v3 contract', function (): void {
     ))->not->toThrow(InvalidManifestException::class);
 });
 
+// Bug caught: package manifests carry launchStatus so the catalogue can hide unreleased packages and badge previews;
+// without it in the schema every manifest that declares it fails to load, and a typo would silently publish a package.
+it('accepts shipped, preview and hidden launch statuses and rejects any other value', function (): void {
+    $validator = new ManifestValidator;
+
+    foreach (['shipped', 'preview', 'hidden'] as $status) {
+        $manifest = manifestV3ValidatorLegacyFixture();
+        $manifest['launchStatus'] = $status;
+
+        expect(fn () => $validator->validate($manifest, composerJson: manifestV3ValidatorComposerJson()))
+            ->not->toThrow(InvalidManifestException::class);
+    }
+
+    $manifest = manifestV3ValidatorLegacyFixture();
+    $manifest['launchStatus'] = 'released';
+
+    expect(fn () => $validator->validate($manifest, composerJson: manifestV3ValidatorComposerJson()))
+        ->toThrow(InvalidManifestException::class, 'launchStatus');
+});
+
 it('accepts every shared extension surface taxonomy value plus legacy runtime surfaces', function (): void {
     $validator = new ManifestValidator;
     $manifest = manifestV3ValidatorLegacyFixture();

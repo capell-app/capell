@@ -102,6 +102,7 @@ class GetPluginsAction
                     'extendsPackage' => $package['extends'] ?? $package['extendsPackage'] ?? null,
                     'previewImageUrl' => MarketplaceAssetUrl::toUrl($this->stringValue($package['previewImageUrl'] ?? $package['preview_image_url'] ?? $package['image_url'] ?? $package['logo_url'] ?? null)),
                     'visibility' => $package['visibility'] ?? 'catalogue',
+                    'launchStatus' => $package['launchStatus'] ?? 'shipped',
                     'declaredRoles' => $this->declaredRoles($package['roles'] ?? null),
                     'declaredRolePriority' => is_int($package['rolePriority'] ?? null) ? $package['rolePriority'] : null,
                     'declaredInstallTips' => $this->declaredRows($package['installTips'] ?? null, ExtensionInstallTipData::tryFromArray(...)),

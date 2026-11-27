@@ -191,3 +191,23 @@ function manifestV3DataFixture(): array
 {
     return capellManifestV3Array();
 }
+
+// Bug caught: a manifest without launchStatus, or with a stray value, must read as shipped like visibility reads as
+// catalogue; otherwise consumers see null or an unknown state and cannot decide whether to list or badge the package.
+it('round-trips the launch status and reads an absent or unknown one as shipped', function (): void {
+    $data = manifestV3DataFixture();
+    $data['launchStatus'] = 'preview';
+    $preview = CapellManifestData::fromArray($data);
+
+    unset($data['launchStatus']);
+    $absent = CapellManifestData::fromArray($data);
+
+    $data['launchStatus'] = 'released';
+    $unknown = CapellManifestData::fromArray($data);
+
+    expect($preview->launchStatus)->toBe('preview')
+        ->and(CapellManifestData::fromArray($preview->toArray())->launchStatus)->toBe('preview')
+        ->and($absent->launchStatus)->toBe('shipped')
+        ->and(CapellManifestData::fromArray($absent->toArray())->launchStatus)->toBe('shipped')
+        ->and($unknown->launchStatus)->toBe('shipped');
+});
