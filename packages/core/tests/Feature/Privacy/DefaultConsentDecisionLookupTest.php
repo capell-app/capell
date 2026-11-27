@@ -9,6 +9,6 @@ it('answers undecided for every subject when no consent manager is installed', f
     // Bug caught: a default that granted, or no binding at all, would let queued analytics send for a subject nobody records.
     $lookup = resolve(ConsentDecisionLookup::class);
 
-    expect($lookup->decisionFor('any-subject', 'analytics'))->toBe(ConsentDecision::Undecided)
-        ->and($lookup->decisionFor('any-subject', 'essential'))->toBe(ConsentDecision::Undecided);
+    expect($lookup->decisionFor('any-subject', 'analytics', 7))->toBe(ConsentDecision::Undecided)
+        ->and($lookup->decisionFor('any-subject', 'essential', null))->toBe(ConsentDecision::Undecided);
 });

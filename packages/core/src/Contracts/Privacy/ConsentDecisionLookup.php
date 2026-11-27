@@ -16,6 +16,10 @@ use Capell\Core\Enums\ConsentDecision;
  */
 interface ConsentDecisionLookup
 {
-    /** The subject's current decision for a ConsentCategory value; Undecided when nothing current is recorded. */
-    public function decisionFor(string $subject, string $category): ConsentDecision;
+    /**
+     * The subject's current decision for a ConsentCategory value on this site, under that site's current consent policy;
+     * Undecided when nothing current is recorded for it. A consent cookie can be shared by several sites on one host, so
+     * a decision recorded on one site never answers for another. A null site means decisions recorded with no site.
+     */
+    public function decisionFor(string $subject, string $category, ?int $siteId): ConsentDecision;
 }
