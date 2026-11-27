@@ -67,6 +67,26 @@ return [
         ],
     ],
 
+    /*
+     * One-time sign-in links for the admin panel. Each link works once, expires
+     * quickly and stops working when the person's password changes. Anyone who
+     * uses two-factor authentication must still sign in with their password and
+     * code. `enabled` turns links off entirely, including the
+     * capell:admin-login-link command. `email_requests` adds "Email me a sign-in
+     * link" to the login page. It is off by default: a site turns it on when it
+     * wants people to sign in from their inbox. The command works either way.
+     */
+    'login_links' => [
+        'enabled' => env('CAPELL_ADMIN_LOGIN_LINKS_ENABLED', true),
+        'email_requests' => env('CAPELL_ADMIN_LOGIN_LINK_EMAIL_REQUESTS', false),
+        'expires_in_minutes' => (int) env('CAPELL_ADMIN_LOGIN_LINK_EXPIRES_IN_MINUTES', 15),
+        // Emailed links per address in the window below; extra requests are silently dropped.
+        'max_emails_per_address' => 3,
+        // Requests from one IP address in the window below before the form asks them to wait.
+        'max_requests_per_ip' => 10,
+        'request_window_minutes' => 15,
+    ],
+
     'resources' => [
         'page' => [
             'navigation_badge' => false,

@@ -1,4 +1,13 @@
 {
+    "create_admin_login_link_tokens_table": {
+        "names": [
+            "2026_11_26_000001_create_admin_login_link_tokens_table"
+        ],
+        "sha256": [
+            "28e43a8acd592c8087c816279562aa8db1e54be6981f3aca0968091b67b2e533",
+            "c4713146966043945a663e42b8acff9656e06ad25eada6955457445b231c3ed8"
+        ]
+    },
     "create_admin_permission_default_grants_table": {
         "names": [
             "2026_11_15_000001_create_admin_permission_default_grants_table"

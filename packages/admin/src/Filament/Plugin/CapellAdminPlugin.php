@@ -18,6 +18,8 @@ use Capell\Admin\Filament\Actions\CreateAction;
 use Capell\Admin\Filament\AvatarProviders\InlineSvgAvatarProvider;
 use Capell\Admin\Filament\Pages\AbstractPackageSettingsPage;
 use Capell\Admin\Filament\Pages\Auth\AcceptInvitation;
+use Capell\Admin\Filament\Pages\Auth\RequestLoginLink;
+use Capell\Admin\Filament\Pages\Auth\SignInWithLink;
 use Capell\Admin\Filament\Pages\RecentlyDeletedPage;
 use Capell\Admin\Filament\Pages\SiteHealthPage;
 use Capell\Admin\Filament\Resources\Pages\PageResource;
@@ -167,6 +169,17 @@ class CapellAdminPlugin implements Plugin
         $panel->authenticatedRoutes(TransferDownloadEnum::registerPanelRoutes(...));
         // Invited people choose their password here before they have an account session.
         $panel->routes(AcceptInvitation::registerInvitationRoute(...));
+        // One-time sign-in links: asking for one by email, and the page each link opens.
+        $panel->routes(RequestLoginLink::registerRoute(...));
+        $panel->routes(SignInWithLink::registerRoute(...));
+        $panel->renderHook(
+            name: PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+            hook: function (): ?View {
+                $url = RequestLoginLink::url();
+
+                return $url === null ? null : view('capell-admin::components.auth.login-link', ['url' => $url]);
+            },
+        );
 
         $panel->renderHook(
             name: PanelsRenderHook::STYLES_BEFORE,
