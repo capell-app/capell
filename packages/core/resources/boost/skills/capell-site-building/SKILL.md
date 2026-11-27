@@ -21,30 +21,32 @@ php artisan list --raw | grep '^capell'
 ## 1. Settings and branding
 
 - The site name, address, languages, logo and theme colours are site and theme data, edited in the admin panel under `/admin` (Sites, Themes and Settings).
+- Read and change registered settings from the command line with `php artisan capell:settings:get [group]` and `php artisan capell:settings:set <group.name> <value>`. Values are checked against the setting's type.
 - A SiteSpec carries `site.businessName` and `theme.colors`. Theme settings are merged into an existing site when the spec's theme key matches the site's theme; other site fields of an existing site are not changed by an import. Read `capell` skill `references/site-spec.md`.
 - Never hard-code a colour, logo or business name in Blade: the theme reads them from settings.
 
 ## 2. Theme
 
 - Pick an installed theme first: the Foundation theme (`default`) ships with Capell, and more themes are Marketplace packages.
-- A site uses one theme, chosen per site in the admin panel. On a fresh install, `php artisan capell:install --theme=<key>` picks it.
-- For a new look, create a child theme: `php artisan capell:make:theme <key> --local --extends=default`, then follow the generated README to require it with Composer. Check it with `php artisan capell:themes:validate <key>`.
+- A site uses one theme. Switch it with `php artisan capell:theme:activate <key>` (add `--site=<id>` when there is more than one site, and `--default` to make it the theme new sites start with), or in the admin panel under Themes.
+- For a new look, create a child theme: `php artisan capell:make:theme <key> --local --extends=default`, then follow the generated README to require it with Composer, check it with `php artisan capell:themes:validate <key>` and activate it.
 - Decide what is theme markup and what is editable data with the `capell-theme-scale` skill, and build themes with `capell-theme-development`.
 
 ## 3. Page types
 
-- A page type is a blueprint subject: a model that implements `Blueprintable`, registered with `BlueprintSubjectRegistry` in a service provider. Its form fields come from schema extenders (`PageSchemaExtender::TAG`), not from published Core schemas.
-- Use one page type for every page that shares fields, such as services or case studies. Read `capell` skill `references/extending.md`, "Creating a Custom Page Type".
+- A page type is a page blueprint editors choose when they add a page. Create one with `php artisan capell:make:page-type <key> --name="<Name>"` (`--dry-run` previews it), then add its fields in the admin panel under Blueprints or with a page schema extender (`PageSchemaExtender::TAG`), never by publishing Core schemas.
+- Use one page type for every page that shares fields, such as services or case studies.
+- A model of your own that should carry blueprints (not a kind of page) is a blueprint subject: `php artisan capell:make:blueprint <Name>`. Read `capell` skill `references/extending.md`.
 
 ## 4. Layouts
 
-- A layout is a set of named containers (for example header, main, sidebar, footer) that Layout Builder widgets are placed into. Create and edit layouts in the admin panel under Layouts, and assign a layout to pages or page types instead of copying markup between pages.
+- A layout is a set of named containers (for example header, main, sidebar, footer) that Layout Builder widgets are placed into. Create one with `php artisan capell:make:layout <key> --name="<Name>" --from=<existing layout key>` to start from another layout's containers, place widgets in the admin panel under Layouts, and assign the layout to pages instead of copying markup between pages.
 - When seeding layouts in code, use Layout Builder Actions such as `AddWidgetToLayoutContainerAction`. Read `capell-cms-development` `references/layout-builder.md`.
 
 ## 5. Widgets and blocks
 
-- Use the Layout Builder widgets and Block Library blocks already installed before creating a widget. Editors can then change the copy, images and settings without a deploy.
-- A new widget gets a blueprint for its editable fields, a view that renders hydrated data, and a test. Register it through the widget registration contract, never with the removed `CapellCore::registerWidget()`.
+- Use the Layout Builder widgets and Block Library blocks already installed before creating a widget. List them with `php artisan capell:widgets:list --json` and `php artisan capell:blocks:list --json`. Editors can then change the copy, images and settings without a deploy.
+- A new widget gets a blueprint for its editable fields, a view that renders hydrated data, and a test: `php artisan capell:make:widget <Name>` writes the view and the test and prints the seeder snippet that registers it. Never use the removed `CapellCore::registerWidget()`.
 - Public Blade receives hydrated render data: no database queries or lazy loading in views, and no editor IDs, field paths or permissions in public HTML.
 
 ## 6. Packages
