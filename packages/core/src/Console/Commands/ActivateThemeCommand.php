@@ -80,6 +80,15 @@ final class ActivateThemeCommand extends Command
             return null;
         }
 
+        $invalid = array_values(array_filter($requested, fn (string $id): bool => preg_match('/^[1-9]\d*$/', $id) !== 1));
+
+        if ($invalid !== []) {
+            $this->error(sprintf('A site ID is a whole number, not [%s].', implode(', ', $invalid)));
+            $this->listSites($sites->all());
+
+            return null;
+        }
+
         $ids = array_values(array_unique(array_map(intval(...), $requested)));
         $missing = array_values(array_diff($ids, $sites->map(fn (Site $site): int => (int) $site->getKey())->all()));
 

@@ -103,6 +103,18 @@ it('asks which site to switch when there is more than one', function (): void {
         ->and($first->refresh()->theme_id)->not->toBe($second->theme_id);
 });
 
+it('refuses a site ID that is not a number instead of switching site 0', function (): void {
+    $site = Site::factory()->default()->create();
+    Theme::factory()->create(['key' => 'aurora']);
+    $before = $site->theme_id;
+
+    artisanCommand('capell:theme:activate', ['theme' => 'aurora', '--site' => ['main']])
+        ->expectsOutputToContain('A site ID is a whole number, not [main]')
+        ->assertExitCode(Command::FAILURE);
+
+    expect($site->refresh()->theme_id)->toBe($before);
+});
+
 it('names the installed themes when the key is unknown', function (): void {
     Site::factory()->default()->create();
 
