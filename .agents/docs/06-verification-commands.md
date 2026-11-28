@@ -7,6 +7,12 @@ Broad tests and preflights use the [host release verification gate](../../docs/r
 
 - Focused Pest: `./capell pest packages/<package>/tests/path/ToTest.php --configuration=phpunit.xml`
   (host: `vendor/bin/pest ...` with PHP 8.4)
+- Companion Packages a change reaches: `python3 -B scripts/premerge-hint.py` lists the
+  Packages tests that name a changed Core class, directly, through Packages classes or
+  through one Core caller. Run them from a Packages checkout whose `vendor/capell-app`
+  links to this branch before merging a change to a shared contract. It reads the sibling
+  `../capell-packages-4` (or `CAPELL_PACKAGES_REPO_PATH`) and fails rather than report none
+  when that checkout is missing; language files, views and config are listed as not traced.
 - Changed-file formatting: `composer lint:changed`
 - Source analysis while iterating: `composer analyze:source`
 - Ad-hoc path-scoped analysis (e.g. one package): `composer analyze:diff -- <path>`.
