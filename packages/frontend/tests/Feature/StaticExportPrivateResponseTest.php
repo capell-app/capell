@@ -10,11 +10,11 @@ use Capell\Core\Support\Creator\BlueprintCreator;
 use Capell\Frontend\Actions\GenerateStaticPageArtifactsAction;
 use Capell\Frontend\Data\ApplicationAreaData;
 use Capell\Frontend\Support\Application\ApplicationAreaRegistry;
+use Capell\Frontend\Support\Cache\PrivateFrontendResponse;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Redirector;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
@@ -69,12 +69,13 @@ it('withdraws a copy exported before the page became private', function (): void
     expect(File::exists($stale))->toBeFalse();
 });
 
-it('withholds a private page that sends a visitor to sign in instead of failing the export', function (): void {
-    Page::factory()->site($this->site)
-        ->type(resolve(BlueprintCreator::class)->applicationPageType('account', 'Account'))
-        ->withTranslations(slug: 'orders')
-        ->create(['meta' => null]);
-    Route::middleware(['web', 'frontend.application:account'])->get('/orders', fn (): Redirector|RedirectResponse => redirect('/login'));
+it('withholds a page its route marks private, even when it redirects, instead of failing the export', function (): void {
+    Page::factory()->site($this->site)->withTranslations(slug: 'orders')->create(['meta' => null]);
+    Route::middleware('web')->get('/orders', function (Request $request): RedirectResponse {
+        PrivateFrontendResponse::mark($request);
+
+        return redirect('/login');
+    });
     $stale = exportedFileFor($this->site, '/orders');
     File::ensureDirectoryExists(dirname($stale));
     File::put($stale, '<html>Orders for someone else</html>');
@@ -83,6 +84,38 @@ it('withholds a private page that sends a visitor to sign in instead of failing 
 
     expect($manifest['withheld'])->toContain('/orders')
         ->and(File::exists($stale))->toBeFalse();
+});
+
+it('withholds an application page whose sign-in middleware answers before the page is resolved', function (): void {
+    // The documented route order puts auth first, so a signed-out export request is
+    // redirected before the application middleware can mark it private.
+    Route::get('/login', fn (): string => 'Sign in')->name('login');
+    Page::factory()->site($this->site)
+        ->type(resolve(BlueprintCreator::class)->applicationPageType('account', 'Account'))
+        ->withTranslations(slug: 'account-settings')
+        ->create(['meta' => null]);
+    Route::middleware(['web', 'auth', 'frontend.application:account'])->get('/account-settings', fn (): string => 'Settings');
+    $stale = exportedFileFor($this->site, '/account-settings');
+    File::ensureDirectoryExists(dirname($stale));
+    File::put($stale, '<html>Settings for someone else</html>');
+
+    $manifest = GenerateStaticPageArtifactsAction::run(siteId: $this->site->id);
+
+    expect($manifest['withheld'])->toContain('/account-settings')
+        ->and(File::exists($stale))->toBeFalse();
+});
+
+it('keeps a public page that answers with a no-store redirect as a failure rather than withdrawing it', function (): void {
+    // Visitor language detection redirects with no-store; that says nothing about the page.
+    Page::factory()->site($this->site)->withTranslations(slug: 'about')->create(['meta' => null]);
+    Route::middleware('web')->get('/about', fn (): RedirectResponse => redirect('/de/about')->withHeaders(['Cache-Control' => 'no-store, private']));
+    $exported = exportedFileFor($this->site, '/about');
+    File::ensureDirectoryExists(dirname($exported));
+    File::put($exported, '<html>About us</html>');
+
+    expect(fn (): mixed => GenerateStaticPageArtifactsAction::run(siteId: $this->site->id))
+        ->toThrow(RuntimeException::class, '/about: HTTP 302')
+        ->and(File::exists($exported))->toBeTrue();
 });
 
 it('withdraws an earlier copy of a page whose output is no longer safe to publish', function (): void {

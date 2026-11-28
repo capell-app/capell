@@ -25,6 +25,7 @@ use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\StaticPageArtifactSourceData;
 use Capell\Frontend\Support\Cache\PrivateFrontendResponse;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
+use Capell\Frontend\Support\Loader\PageCachePolicy;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
@@ -66,6 +67,17 @@ class GenerateStaticPageArtifactsAction
                 return;
             }
 
+            // A page type that is never cached renders per-visitor output (an application page,
+            // whichever middleware answers first, such as a sign-in redirect). The export is a
+            // cache every visitor is served, so the page is withheld without rendering it, and
+            // any copy exported before its type changed is withdrawn.
+            if (PageCachePolicy::neverCached($pageUrl->pageable)) {
+                $this->withdraw($pageUrl, $siteDomain);
+                $withheld[] = $pageUrl->url;
+
+                return;
+            }
+
             $this->clearRenderData();
             // The rules this page is rendered under; checked again when it is written.
             $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp($pageUrl->site_id);
@@ -80,11 +92,13 @@ class GenerateStaticPageArtifactsAction
                 return;
             }
 
-            // Per-user output (an application page, a no-store response) is served only by
-            // Laravel. Withdraw any copy exported before the page became private, so the
-            // web server cannot serve it to every visitor. This comes before the status check:
-            // a private page that redirects a visitor to sign in is withheld, not a failure.
-            if (PrivateFrontendResponse::isMarked($request, $response)) {
+            // A response its route marked private, or a successful no-store page, is per-user
+            // output served only by Laravel: withdraw any earlier copy so the web server cannot
+            // serve it to every visitor. A marked redirect is withheld rather than failing the
+            // export. A no-store redirect on its own (visitor language detection sends one) says
+            // nothing about the page, so it stays a failure below and keeps the existing files.
+            if (PrivateFrontendResponse::isMarked($request)
+                || ($response->isSuccessful() && PrivateFrontendResponse::isMarked($request, $response))) {
                 $this->withdraw($pageUrl, $siteDomain);
                 $withheld[] = $pageUrl->url;
 
@@ -193,7 +207,7 @@ class GenerateStaticPageArtifactsAction
         $matchedUrls = [];
 
         PageUrl::query()
-            ->with(['language', 'site.theme', 'pageable.layout', 'pageable.site.theme'])
+            ->with(['language', 'site.theme', 'pageable.blueprint', 'pageable.layout', 'pageable.site.theme'])
             ->enabled()
             ->when($siteId !== null, fn (Builder $query): Builder => $query->where('site_id', $siteId))
             ->when($urls !== [], fn (Builder $query): Builder => $query->whereIn('url', $urls))
