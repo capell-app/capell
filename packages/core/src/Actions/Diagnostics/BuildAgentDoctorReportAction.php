@@ -28,7 +28,11 @@ use Lorisleiva\Actions\Concerns\AsObject;
 use PDOException;
 use Throwable;
 
-/** Gather the orientation report behind `capell:agent:doctor`. */
+/**
+ * Gather the orientation report behind `capell:agent:doctor`.
+ *
+ * @method static AgentDoctorReportData run()
+ */
 final class BuildAgentDoctorReportAction
 {
     use AsFake;

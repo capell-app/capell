@@ -16,7 +16,7 @@ final class AgentDoctorCommand extends Command
 
     public function handle(): int
     {
-        $report = BuildAgentDoctorReportAction::make()->handle();
+        $report = BuildAgentDoctorReportAction::run();
 
         if ($this->option('json')) {
             $this->line(JsonCodec::encode($report->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
