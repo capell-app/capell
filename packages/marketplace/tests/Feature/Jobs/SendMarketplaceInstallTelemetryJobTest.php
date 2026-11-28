@@ -7,9 +7,19 @@ use Capell\Marketplace\Enums\MarketplaceInstallIntentStatus;
 use Capell\Marketplace\Jobs\ResumeMarketplaceInstallFlowJob;
 use Capell\Marketplace\Jobs\SendMarketplaceInstallTelemetryJob;
 use Capell\Marketplace\Models\MarketplaceInstallAttempt;
+use Capell\Marketplace\Models\MarketplaceInstance;
 use Capell\Marketplace\Services\MarketplaceClient;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Support\Facades\Http;
+
+beforeEach(function (): void {
+    // The marketplace only accepts install intents signed by a registered instance.
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000487',
+        'signing_secret_encrypted' => 'telemetry-job-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+});
 
 it('coalesces telemetry dispatches for the same install attempt', function (): void {
     $job = new SendMarketplaceInstallTelemetryJob(42);

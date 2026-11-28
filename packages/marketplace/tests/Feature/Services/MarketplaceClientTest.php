@@ -15,6 +15,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 beforeEach(function (): void {
     config([
@@ -1022,7 +1023,13 @@ it('includes account identity context in signed install authorization requests',
     });
 });
 
-it('sends queued free install telemetry without domain context', function (): void {
+it('signs queued free install telemetry the way the marketplace authorises install intents', function (): void {
+    MarketplaceInstance::query()->create([
+        'instance_id' => '00000000-0000-4000-8000-000000000486',
+        'signing_secret_encrypted' => 'free-telemetry-secret',
+        'last_heartbeat_at' => now(),
+    ]);
+
     Http::fake([
         'https://marketplace.test/api/extensions/install-intents' => Http::response([], 202),
     ]);
@@ -1033,11 +1040,59 @@ it('sends queued free install telemetry without domain context', function (): vo
         'composer_name' => 'capell-app/free-tools',
     ]);
 
-    Http::assertSent(fn ($request): bool => $request->url() === 'https://marketplace.test/api/extensions/install-intents'
-        && $request->data()['authorization_required'] === false
-        && $request->data()['source'] === 'marketplace_free_install'
-        && $request->data()['composer_name'] === 'capell-app/free-tools'
-        && ! array_key_exists('domain', $request->data()));
+    // Mirrors the marketplace's verifier: the request is rejected unless it
+    // names the instance and carries a signature header, and that header must
+    // be the HMAC of the canonical body.
+    Http::assertSent(function ($request): bool {
+        $payload = json_decode((string) $request->body(), true, flags: JSON_THROW_ON_ERROR);
+        $signatureHeader = $request->header('X-Capell-Signature')[0] ?? '';
+        $unsigned = $payload;
+        unset($unsigned['signature']);
+        $sortRecursively = function (mixed $value) use (&$sortRecursively): mixed {
+            if (! is_array($value)) {
+                return $value;
+            }
+
+            if (! array_is_list($value)) {
+                ksort($value);
+            }
+
+            return array_map($sortRecursively, $value);
+        };
+        $expectedSignature = 'sha256=' . hash_hmac(
+            'sha256',
+            json_encode($sortRecursively($unsigned), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            'free-telemetry-secret',
+        );
+
+        return $request->url() === 'https://marketplace.test/api/extensions/install-intents'
+            && ($request->header('X-Capell-Instance')[0] ?? '') === '00000000-0000-4000-8000-000000000486'
+            && $signatureHeader === $payload['signature']
+            && hash_equals($expectedSignature, $signatureHeader)
+            && $payload['instance_id'] === '00000000-0000-4000-8000-000000000486'
+            && $payload['signature_algorithm'] === 'hmac-sha256'
+            && Str::isUuid($payload['signature_nonce'])
+            && $payload['signature_context']['path'] === '/extensions/install-intents'
+            && $payload['authorization_required'] === false
+            && $payload['source'] === 'marketplace_free_install'
+            && $payload['composer_name'] === 'capell-app/free-tools'
+            && ! array_key_exists('domain', $payload);
+    });
+});
+
+it('does not send free install telemetry the marketplace would reject when this site has no signing instance', function (): void {
+    config([
+        'capell-marketplace.instance.id' => null,
+        'capell-marketplace.marketplace.webhook_secret' => null,
+    ]);
+    Http::fake();
+
+    expect(fn () => resolve(MarketplaceClient::class)->sendFreeInstallTelemetry([
+        'event_type' => 'install_intent',
+        'composer_name' => 'capell-app/free-tools',
+    ]))->toThrow(RuntimeException::class);
+
+    Http::assertNothingSent();
 });
 
 it('requests upgrade authorization with a signed instance payload', function (): void {
