@@ -20,13 +20,19 @@ use Capell\Core\ThemeStudio\Data\ThemeDefinitionData;
 use Capell\Core\ThemeStudio\Theme\ThemeRegistry;
 use Composer\InstalledVersions;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Schema;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
+use PDOException;
 use Throwable;
 
-/** Gather the orientation report behind `capell:agent:doctor`. */
+/**
+ * Gather the orientation report behind `capell:agent:doctor`.
+ *
+ * @method static AgentDoctorReportData run()
+ */
 final class BuildAgentDoctorReportAction
 {
     use AsFake;
@@ -82,6 +88,8 @@ final class BuildAgentDoctorReportAction
 
     public function handle(): AgentDoctorReportData
     {
+        $themeRecords = $this->themeRecords();
+
         return new AgentDoctorReportData(
             versions: [
                 'capell' => CapellCore::getInstalledPrettyVersion('capell-app/core'),
@@ -89,12 +97,13 @@ final class BuildAgentDoctorReportAction
                 'php' => PHP_VERSION,
             ],
             packages: $this->packages(),
-            themes: $this->themes(),
+            themes: $this->themes($themeRecords['keys']),
             pageTypes: $this->pageTypes(),
             widgets: $this->widgets(),
             makers: $this->makers(),
             mcp: $this->mcp(),
             commands: $this->commands(),
+            diagnostics: $themeRecords['diagnostic'] === null ? [] : [$themeRecords['diagnostic']],
         );
     }
 
@@ -114,11 +123,12 @@ final class BuildAgentDoctorReportAction
             ->all());
     }
 
-    /** @return list<array{key: string, name: string, extends: ?string, package: string, runtime: string, installed: bool}> */
-    private function themes(): array
+    /**
+     * @param  list<string>|null  $installedKeys  Null when the theme records could not be read.
+     * @return list<array{key: string, name: string, extends: ?string, package: string, runtime: string, installed: ?bool}>
+     */
+    private function themes(?array $installedKeys): array
     {
-        $installedKeys = $this->installedThemeKeys();
-
         return array_values(collect(resolve(ThemeRegistry::class)->definitions())
             ->map(fn (ThemeDefinitionData $theme): array => [
                 'key' => $theme->key,
@@ -126,25 +136,49 @@ final class BuildAgentDoctorReportAction
                 'extends' => $theme->extends,
                 'package' => $theme->package,
                 'runtime' => $theme->runtime->value,
-                'installed' => in_array($theme->key, $installedKeys, true),
+                // Unknown rather than false: a failed read says nothing about what is installed.
+                'installed' => $installedKeys === null ? null : in_array($theme->key, $installedKeys, true),
             ])
             ->sortBy('key')
             ->values()
             ->all());
     }
 
-    /** @return list<string> */
-    private function installedThemeKeys(): array
+    /**
+     * The keys of the themes that have a record. With no themes table yet (before the first
+     * install) none is installed. A read that fails leaves the state unknown, with a
+     * diagnostic that names the connection and SQLSTATE but never the exception message,
+     * which can carry hosts, credentials, paths or SQL.
+     *
+     * @return array{keys: list<string>|null, diagnostic: array{id: string, message: string}|null}
+     */
+    private function themeRecords(): array
     {
+        $theme = new Theme;
+
         try {
-            if (! Schema::hasTable(new Theme()->getTable())) {
-                return [];
+            if (! Schema::connection($theme->getConnectionName())->hasTable($theme->getTable())) {
+                return ['keys' => [], 'diagnostic' => null];
             }
 
-            return array_values(Theme::query()->pluck('key')->filter()->map(strval(...))->all());
-        } catch (Throwable) {
-            // No database yet (for example before the first install); report themes as not installed.
-            return [];
+            return [
+                'keys' => array_values(Theme::query()->pluck('key')->filter()->map(strval(...))->all()),
+                'diagnostic' => null,
+            ];
+        } catch (Throwable $throwable) {
+            $connection = $theme->getConnectionName() ?? (string) config('database.default');
+            $sqlState = $throwable instanceof QueryException || $throwable instanceof PDOException
+                ? (string) $throwable->getCode()
+                : '';
+
+            return ['keys' => null, 'diagnostic' => [
+                'id' => 'themes.records-unreadable',
+                'message' => sprintf(
+                    'Theme install state is unknown: the theme records could not be read from the [%s] database connection%s. Run php artisan capell:doctor to check the database.',
+                    $connection,
+                    preg_match('/\A[0-9A-Z]{5}\z/', $sqlState) === 1 ? sprintf(' (SQLSTATE %s)', $sqlState) : '',
+                ),
+            ]];
         }
     }
 

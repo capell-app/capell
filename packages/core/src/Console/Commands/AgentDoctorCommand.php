@@ -33,11 +33,22 @@ final class AgentDoctorCommand extends Command
             $report->packages,
         ));
 
+        $themeRows = [];
+
+        foreach ($report->themes as $theme) {
+            $themeRows[] = [$theme['key'], $theme['extends'] ?? '-', $theme['package'], match ($theme['installed']) {
+                true => 'yes',
+                false => 'no',
+                null => 'unknown',
+            }];
+        }
+
         $this->line('Themes');
-        $this->table(['Key', 'Extends', 'Package', 'Installed'], array_map(
-            fn (array $theme): array => [$theme['key'], $theme['extends'] ?? '-', $theme['package'], $theme['installed'] ? 'yes' : 'no'],
-            $report->themes,
-        ));
+        $this->table(['Key', 'Extends', 'Package', 'Installed'], $themeRows);
+
+        foreach ($report->diagnostics as $diagnostic) {
+            $this->warn($diagnostic['message']);
+        }
 
         $this->line('Page types: ' . ($report->pageTypes === [] ? 'none' : implode(', ', array_column($report->pageTypes, 'name'))));
         $this->line('Widgets and blocks: ' . ($report->widgets === [] ? 'none registered' : implode(', ', array_column($report->widgets, 'key'))));
