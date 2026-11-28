@@ -23,6 +23,7 @@ use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\StaticPageArtifactSourceData;
+use Capell\Frontend\Support\Cache\PrivateFrontendResponse;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
@@ -69,10 +70,23 @@ class GenerateStaticPageArtifactsAction
             // The rules this page is rendered under; checked again when it is written.
             $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp($pageUrl->site_id);
 
+            $request = $this->requestFor($pageUrl, $siteDomain);
+
             try {
-                $response = $this->render($pageUrl, $siteDomain);
+                $response = $this->render($request, $pageUrl, $siteDomain);
             } catch (Throwable $throwable) {
                 $failures[] = $pageUrl->url . ': ' . $throwable->getMessage();
+
+                return;
+            }
+
+            // Per-user output (an application page, a no-store response) is served only by
+            // Laravel. Withdraw any copy exported before the page became private, so the
+            // web server cannot serve it to every visitor. This comes before the status check:
+            // a private page that redirects a visitor to sign in is withheld, not a failure.
+            if (PrivateFrontendResponse::isMarked($request, $response)) {
+                $this->withdraw($pageUrl, $siteDomain);
+                $withheld[] = $pageUrl->url;
 
                 return;
             }
@@ -90,7 +104,12 @@ class GenerateStaticPageArtifactsAction
             $renderData = $reader->renderPayload()->publicPageRenderData;
             $source = StaticPageArtifactSourceData::fromModels($reader->page(), $reader->site(), $reader->language(), $reader->layout(), $reader->theme());
 
+            // Output that is unsafe to publish (a baked CSRF token, a render-contract breach)
+            // is served only by Laravel too, so an earlier copy must not outlive it.
             if (! $this->isWritableHtmlResponse($response)) {
+                $this->withdraw($pageUrl, $siteDomain);
+                $withheld[] = $pageUrl->url;
+
                 return;
             }
 
@@ -156,7 +175,7 @@ class GenerateStaticPageArtifactsAction
         $manifest = [
             'generated_at' => Date::now()->toIso8601String(),
             'artifacts' => $artifacts,
-            // Pages served only by Laravel under the current public-read rules.
+            // Pages served only by Laravel: private responses, and pages the current public-read rules keep from export.
             'withheld' => $withheld,
         ];
 
@@ -209,10 +228,22 @@ class GenerateStaticPageArtifactsAction
             ->first();
     }
 
-    private function render(PageUrl $pageUrl, SiteDomain $siteDomain): Response
+    private function requestFor(PageUrl $pageUrl, SiteDomain $siteDomain): Request
     {
-        $url = rtrim($siteDomain->full_url, '/') . ($pageUrl->url);
-        $request = Request::create($url, \Symfony\Component\HttpFoundation\Request::METHOD_GET);
+        return Request::create(rtrim($siteDomain->full_url, '/') . $pageUrl->url, \Symfony\Component\HttpFoundation\Request::METHOD_GET);
+    }
+
+    private function withdraw(PageUrl $pageUrl, SiteDomain $siteDomain): void
+    {
+        $file = $this->pathResolver->pathForPageUrl($pageUrl, $siteDomain);
+
+        $this->store->exclusive(function () use ($file): void {
+            $this->store->forgetHtml($file);
+        });
+    }
+
+    private function render(Request $request, PageUrl $pageUrl, SiteDomain $siteDomain): Response
+    {
         $policy = resolve(SiteAccessPolicyRegistry::class)->resolve(new SiteAccessContextData(
             request: $request,
             site: $pageUrl->site,
