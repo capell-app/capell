@@ -23,7 +23,9 @@ use Capell\Frontend\Data\FrontendRenderContextData;
 use Capell\Frontend\Data\FrontendRenderPayload;
 use Capell\Frontend\Data\PublicPageRenderData;
 use Capell\Frontend\Data\StaticPageArtifactSourceData;
+use Capell\Frontend\Support\Cache\PrivateFrontendResponse;
 use Capell\Frontend\Support\Cache\PublicRenderDataCacheDependencyRegistry;
+use Capell\Frontend\Support\Loader\PageCachePolicy;
 use Capell\Frontend\Support\Security\PublicHtmlSafetyInspector;
 use Capell\Frontend\Support\Static\StaticPageArtifactPathResolver;
 use Capell\Frontend\Support\Static\StaticPageArtifactStore;
@@ -65,14 +67,40 @@ class GenerateStaticPageArtifactsAction
                 return;
             }
 
+            // A page type that is never cached renders per-visitor output (an application page,
+            // whichever middleware answers first, such as a sign-in redirect). The export is a
+            // cache every visitor is served, so the page is withheld without rendering it, and
+            // any copy exported before its type changed is withdrawn.
+            if (PageCachePolicy::neverCached($pageUrl->pageable)) {
+                $this->withdraw($pageUrl, $siteDomain);
+                $withheld[] = $pageUrl->url;
+
+                return;
+            }
+
             $this->clearRenderData();
             // The rules this page is rendered under; checked again when it is written.
             $builtUnder = resolve(PublicReadEligibilityState::class)->freshStamp($pageUrl->site_id);
 
+            $request = $this->requestFor($pageUrl, $siteDomain);
+
             try {
-                $response = $this->render($pageUrl, $siteDomain);
+                $response = $this->render($request, $pageUrl, $siteDomain);
             } catch (Throwable $throwable) {
                 $failures[] = $pageUrl->url . ': ' . $throwable->getMessage();
+
+                return;
+            }
+
+            // A response its route marked private, or a successful no-store page, is per-user
+            // output served only by Laravel: withdraw any earlier copy so the web server cannot
+            // serve it to every visitor. A marked redirect is withheld rather than failing the
+            // export. A no-store redirect on its own (visitor language detection sends one) says
+            // nothing about the page, so it stays a failure below and keeps the existing files.
+            if (PrivateFrontendResponse::isMarked($request)
+                || ($response->isSuccessful() && PrivateFrontendResponse::isMarked($request, $response))) {
+                $this->withdraw($pageUrl, $siteDomain);
+                $withheld[] = $pageUrl->url;
 
                 return;
             }
@@ -90,7 +118,12 @@ class GenerateStaticPageArtifactsAction
             $renderData = $reader->renderPayload()->publicPageRenderData;
             $source = StaticPageArtifactSourceData::fromModels($reader->page(), $reader->site(), $reader->language(), $reader->layout(), $reader->theme());
 
+            // Output that is unsafe to publish (a baked CSRF token, a render-contract breach)
+            // is served only by Laravel too, so an earlier copy must not outlive it.
             if (! $this->isWritableHtmlResponse($response)) {
+                $this->withdraw($pageUrl, $siteDomain);
+                $withheld[] = $pageUrl->url;
+
                 return;
             }
 
@@ -156,7 +189,7 @@ class GenerateStaticPageArtifactsAction
         $manifest = [
             'generated_at' => Date::now()->toIso8601String(),
             'artifacts' => $artifacts,
-            // Pages served only by Laravel under the current public-read rules.
+            // Pages served only by Laravel: private responses, and pages the current public-read rules keep from export.
             'withheld' => $withheld,
         ];
 
@@ -174,7 +207,7 @@ class GenerateStaticPageArtifactsAction
         $matchedUrls = [];
 
         PageUrl::query()
-            ->with(['language', 'site.theme', 'pageable.layout', 'pageable.site.theme'])
+            ->with(['language', 'site.theme', 'pageable.blueprint', 'pageable.layout', 'pageable.site.theme'])
             ->enabled()
             ->when($siteId !== null, fn (Builder $query): Builder => $query->where('site_id', $siteId))
             ->when($urls !== [], fn (Builder $query): Builder => $query->whereIn('url', $urls))
@@ -209,10 +242,22 @@ class GenerateStaticPageArtifactsAction
             ->first();
     }
 
-    private function render(PageUrl $pageUrl, SiteDomain $siteDomain): Response
+    private function requestFor(PageUrl $pageUrl, SiteDomain $siteDomain): Request
     {
-        $url = rtrim($siteDomain->full_url, '/') . ($pageUrl->url);
-        $request = Request::create($url, \Symfony\Component\HttpFoundation\Request::METHOD_GET);
+        return Request::create(rtrim($siteDomain->full_url, '/') . $pageUrl->url, \Symfony\Component\HttpFoundation\Request::METHOD_GET);
+    }
+
+    private function withdraw(PageUrl $pageUrl, SiteDomain $siteDomain): void
+    {
+        $file = $this->pathResolver->pathForPageUrl($pageUrl, $siteDomain);
+
+        $this->store->exclusive(function () use ($file): void {
+            $this->store->forgetHtml($file);
+        });
+    }
+
+    private function render(Request $request, PageUrl $pageUrl, SiteDomain $siteDomain): Response
+    {
         $policy = resolve(SiteAccessPolicyRegistry::class)->resolve(new SiteAccessContextData(
             request: $request,
             site: $pageUrl->site,

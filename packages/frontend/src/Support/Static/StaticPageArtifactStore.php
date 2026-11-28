@@ -128,7 +128,8 @@ final class StaticPageArtifactStore implements PublicArtefactFence
 
     public function forgetHtml(string $file): void
     {
-        $path = $this->pathWithinRoot($file);
+        // Forgetting a page that was never exported leaves no empty directory behind.
+        $path = $this->pathWithinRoot($file, createDirectory: false);
 
         if (File::exists($path)) {
             File::delete($path);
@@ -234,7 +235,7 @@ final class StaticPageArtifactStore implements PublicArtefactFence
         }
     }
 
-    private function pathWithinRoot(string $file): string
+    private function pathWithinRoot(string $file, bool $createDirectory = true): string
     {
         $relativePath = ltrim($file, '/');
 
@@ -250,7 +251,11 @@ final class StaticPageArtifactStore implements PublicArtefactFence
         $rootPath = $resolvedRootPath !== false ? $resolvedRootPath : $root;
         $path = $rootPath . '/' . $relativePath;
         $directory = dirname($path);
-        File::ensureDirectoryExists($directory);
+
+        if ($createDirectory) {
+            File::ensureDirectoryExists($directory);
+        }
+
         $resolvedDirectoryPath = realpath($directory);
         $directoryPath = $resolvedDirectoryPath !== false ? $resolvedDirectoryPath : $directory;
 
