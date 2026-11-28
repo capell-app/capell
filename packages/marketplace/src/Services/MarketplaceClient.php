@@ -539,36 +539,18 @@ final class MarketplaceClient
             'authorization_required' => false,
             'source' => 'marketplace_free_install',
         ];
-        $payload = $this->signedFreeTelemetryPayload($payload);
-
-        $response = $this->pendingRequest(config('capell-marketplace.marketplace.telemetry_timeout_seconds', 3))
-            ->acceptJson()
-            ->post($this->marketplaceUrl('/extensions/install-intents'), $payload);
+        // The marketplace authorises install intents by the signed-instance
+        // headers, so free telemetry travels the same signed route as every
+        // other instance request; a body-only signature is always rejected.
+        $response = $this->postSignedJson(
+            '/extensions/install-intents',
+            $payload,
+            config('capell-marketplace.marketplace.telemetry_timeout_seconds', 3),
+        );
 
         if (! $response->successful()) {
             throw new RuntimeException($this->friendlyResponseMessage());
         }
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function signedFreeTelemetryPayload(array $payload): array
-    {
-        try {
-            $marketplaceInstance = MarketplaceInstance::query()
-                ->latest('last_heartbeat_at')
-                ->first();
-        } catch (Throwable) {
-            return $payload;
-        }
-
-        $signingSecret = $marketplaceInstance?->signing_secret_encrypted;
-        $instanceId = $marketplaceInstance?->instance_id;
-
-        if (! is_string($signingSecret) || $signingSecret === '' || ! is_string($instanceId) || $instanceId === '') {
-            return $payload;
-        }
-
-        return $this->signedMarketplacePayload($payload, $marketplaceInstance, $instanceId, $signingSecret, '/extensions/install-intents');
     }
 
     /**
@@ -853,7 +835,7 @@ final class MarketplaceClient
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function postSignedJson(string $path, array $payload): Response
+    private function postSignedJson(string $path, array $payload, mixed $timeoutSeconds = null): Response
     {
         $marketplaceInstance = $this->instances->latest();
 
@@ -873,7 +855,8 @@ final class MarketplaceClient
 
         throw_if(! is_string($signature) || $signature === '', RuntimeException::class, 'Unable to sign marketplace request payload.');
 
-        return $this->pendingRequest()
+        return $this->pendingRequest($timeoutSeconds)
+            ->acceptJson()
             ->withHeaders([
                 'X-Capell-Instance' => $instanceId,
                 'X-Capell-Signature' => $signature,
