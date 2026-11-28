@@ -273,13 +273,36 @@ it('prints the commands that take a new theme from files to a usable theme', fun
         ->assertExitCode(Command::SUCCESS);
 });
 
-it('installs the theme before checking it with the doctor', function (): void {
+/**
+ * Each step's position in the text, so the test can show they run in order.
+ *
+ * @param  list<string>  $steps
+ * @return list<int|false>
+ */
+function themeStepPositions(string $text, array $steps): array
+{
+    return array_map(fn (string $step): int|false => strpos($text, $step), $steps);
+}
+
+it("lists a package theme's steps so it is installed before its stylesheet is generated and it is checked", function (): void {
+    // Without --local the theme registers only once it is installed, so a stylesheet
+    // generated or a doctor run before the install cannot see it.
     $workbench = sys_get_temp_dir() . '/capell-make-theme-order-' . bin2hex(random_bytes(6));
     mkdir($workbench, 0755, true);
+    Artisan::call('capell:make:theme', ['theme' => 'equidynamics', '--path' => $workbench]);
+    $printed = Artisan::output();
+    $readme = (string) file_get_contents($workbench . '/equidynamics-theme/README.md');
+    $order = ['capell:package-cache:clear', 'capell:install --theme=equidynamics', 'capell:frontend-tailwind-assets', 'capell:theme:doctor equidynamics'];
 
-    Artisan::call('capell:make:theme', ['theme' => 'equidynamics', '--path' => $workbench, '--local' => true]);
-    $output = Artisan::output();
+    foreach (['printed steps' => $printed, 'README' => $readme] as $source => $text) {
+        $positions = themeStepPositions($text, $order);
 
-    expect(strpos($output, 'capell:install --theme=equidynamics'))->toBeInt()
-        ->toBeLessThan(strpos($output, 'capell:theme:doctor equidynamics'));
+        expect($positions)->not->toContain(false)
+            ->and($positions)->toBe(collect($positions)->sort()->values()->all(), $source . ' runs the steps out of order')
+            // A path repository outside a Git checkout has no 1.x branch for Composer to resolve.
+            ->and($text)->not->toContain('1.x-dev');
+    }
+
+    expect($printed)->toContain('composer require app/equidynamics-theme:@dev')
+        ->and($readme)->toContain('"app/equidynamics-theme": "@dev"');
 });
