@@ -588,8 +588,12 @@ php artisan capell:agent:doctor
 php artisan capell:agent:doctor --json
 ```
 
-The JSON report carries `"capell-agent-doctor": 1` so a script can check the
-format before reading it.
+The JSON report carries `"capell-agent-doctor": 2` so a script can check the
+format before reading it. A theme's `installed` is `true` or `false`, or `null`
+when the theme records could not be read. Then `diagnostics` holds an entry with
+the id `themes.records-unreadable` that names the database connection and its
+SQLSTATE code, never the driver's message. Version 1 reported every theme as not
+installed in that case.
 
 ### `capell:health`
 

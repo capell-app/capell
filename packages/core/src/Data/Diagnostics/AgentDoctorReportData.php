@@ -13,17 +13,18 @@ use Spatie\LaravelData\Data;
  */
 final class AgentDoctorReportData extends Data
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     /**
      * @param  array{capell: ?string, laravel: string, php: string}  $versions
      * @param  list<array{name: string, version: ?string, installed: bool, type: string, tier: ?string}>  $packages
-     * @param  list<array{key: string, name: string, extends: ?string, package: string, runtime: string, installed: bool}>  $themes
+     * @param  list<array{key: string, name: string, extends: ?string, package: string, runtime: string, installed: ?bool}>  $themes
      * @param  list<array{name: string, label: string, model: ?string}>  $pageTypes
      * @param  list<array{type: string, key: string, package: string}>  $widgets
      * @param  list<array{key: string, label: string, description: string, command: string, writesPhp: bool, writesDatabase: bool}>  $makers
      * @param  array{laravelMcp: bool, agentBridge: bool, status: string, nextStep: ?string}  $mcp
      * @param  list<array{command: string, purpose: string}>  $commands
+     * @param  list<array{id: string, message: string}>  $diagnostics  What the report could not determine, and why.
      */
     public function __construct(
         public readonly array $versions,
@@ -34,6 +35,7 @@ final class AgentDoctorReportData extends Data
         public readonly array $makers,
         public readonly array $mcp,
         public readonly array $commands,
+        public readonly array $diagnostics = [],
     ) {}
 
     /** @return array<string, mixed> */
@@ -50,6 +52,7 @@ final class AgentDoctorReportData extends Data
             'makers' => $this->makers,
             'mcp' => $this->mcp,
             'commands' => $this->commands,
+            'diagnostics' => $this->diagnostics,
         ];
     }
 }
