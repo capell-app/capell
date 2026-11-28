@@ -86,8 +86,10 @@ final readonly class ThemeScaffoldInputData
             // A path repository outside a Git checkout has no 1.x branch; Composer versions it as dev-main, which @dev accepts.
             sprintf('composer require %s:@dev', $this->packageName),
             'php artisan capell:package-cache:clear',
-            'php artisan capell:frontend-tailwind-assets',
             sprintf('php artisan capell:install --theme=%s', $this->themeKey),
+            // A package theme registers its stylesheet only once it is installed, so the
+            // assets are generated after the install, in a process that sees the install record.
+            'php artisan capell:frontend-tailwind-assets',
             sprintf('php artisan capell:theme:doctor %s --path=%s', $this->themeKey, $directory),
         ];
     }

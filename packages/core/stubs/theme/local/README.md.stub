@@ -18,20 +18,23 @@ Add the host app path repository if it is not already present:
         }
     ],
     "require": {
-        "{{ packageName }}": "1.x-dev"
+        "{{ packageName }}": "@dev"
     }
 }
 ```
 
-Then run Composer, clear the cached package manifest, generate the per-theme
-Tailwind bundle, and install Capell with this theme:
+A path repository outside a Git checkout has no `1.x` branch, so require `@dev`.
+
+Then run Composer, clear the cached package manifest, install Capell with this
+theme, and generate the per-theme Tailwind bundle. The theme registers its
+stylesheet only once it is installed, so the bundle is generated after the install:
 
 ```bash
 composer update {{ packageName }} --with-dependencies
 php artisan capell:package-cache:clear
 php artisan config:clear
-php artisan capell:frontend-tailwind-assets
 php artisan capell:install --theme={{ themeKey }}
+php artisan capell:frontend-tailwind-assets
 php artisan capell:theme:doctor {{ themeKey }} --path={{ doctorPath }}
 ```
 
