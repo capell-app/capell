@@ -4,12 +4,15 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
 
 spec = importlib.util.spec_from_file_location('premerge_hint', Path(__file__).resolve().parents[2] / 'scripts/premerge-hint.py')
 hint = importlib.util.module_from_spec(spec)
+# Dataclasses look their module up in sys.modules while the class is built (Python 3.14).
+sys.modules[spec.name] = hint
 spec.loader.exec_module(hint)
 
 
