@@ -32,6 +32,12 @@ CORE = {
     'composer.json': json.dumps({'autoload': {'psr-4': {'Capell\\Core\\': 'packages/core/src'}}}),
     'packages/core/src/Actions/BuildSite.php': php('Capell\\Core\\Actions', 'use Capell\\Core\\Support\\SharedRowGuard;\n\nfinal class BuildSite\n{\n}'),
     'packages/core/src/Support/SharedRowGuard.php': php('Capell\\Core\\Support', 'final class SharedRowGuard\n{\n}'),
+    'packages/core/src/Support/CacheRegistry.php': php('Capell\\Core\\Support', 'final class CacheRegistry\n{\n}'),
+    'packages/core/src/Contracts/MediaFactory.php': php('Capell\\Core\\Contracts', 'interface MediaFactory\n{\n}'),
+    'packages/core/src/Support/LegacyMediaFactory.php': php(
+        'Capell\\Core\\Support',
+        'use Capell\\Core\\Contracts\\MediaFactory;\n\nfinal class LegacyMediaFactory implements MediaFactory\n{\n}',
+    ),
 }
 
 PACKAGES = {
@@ -61,6 +67,20 @@ PACKAGES = {
         'Capell\\AiCreator\\Tests\\Feature',
         "use Capell\\AiCreator\\Tests\\TestCase;\n\nuses(TestCase::class);\n\nit('lists sessions', fn () => true);",
     ),
+    # Only the provider names the registry, but every blog test boots the provider.
+    'packages/blog/src/Providers/BlogServiceProvider.php': php(
+        'Capell\\Blog\\Providers',
+        'use Capell\\Core\\Support\\CacheRegistry;\n\nfinal class BlogServiceProvider\n{\n    public array $singletons = [CacheRegistry::class];\n}',
+    ),
+    'packages/blog/tests/Feature/PostTest.php': php('Capell\\Blog\\Tests\\Feature', "it('shows a post', fn () => true);"),
+    'packages/content-sections/tests/Feature/SectionMediaTest.php': php(
+        'Capell\\ContentSections\\Tests\\Feature',
+        "use Capell\\Core\\Contracts\\MediaFactory;\n\nit('builds media fields', fn () => app(MediaFactory::class));",
+    ),
+    'packages/navigation/tests/Feature/ExportTest.php': php(
+        'Capell\\Navigation\\Tests\\Feature',
+        "use Capell\\Core\\Actions\\{BuildSite};\n\nit('exports', fn () => BuildSite::run());",
+    ),
 }
 
 
@@ -86,6 +106,7 @@ class PremergeHintTest(unittest.TestCase):
         self.assertEqual(status, 0, output)
         self.assertIn('Capell\\Core\\Actions\\BuildSite -> ai-creator', output)
         self.assertIn('packages/ai-creator/tests/Feature/ApplySessionTest.php', output)
+        self.assertIn('packages/navigation/tests/Feature/ExportTest.php', output)
         # The provider registers the apply action; following it would list every test that boots the package.
         self.assertNotIn('SessionListTest.php', output)
 
@@ -94,6 +115,27 @@ class PremergeHintTest(unittest.TestCase):
 
         self.assertEqual(status, 0, output)
         self.assertIn('packages/ai-creator/tests/Feature/ApplySessionTest.php', output)
+
+    def test_a_class_only_a_provider_names_runs_that_packages_whole_suite(self):
+        status, output = self.hint('packages/core/src/Support/CacheRegistry.php')
+
+        self.assertEqual(status, 0, output)
+        self.assertIn('vendor/bin/pest packages/blog/tests --configuration', output)
+
+    def test_an_implementation_bound_only_in_a_provider_is_traced_through_its_contract(self):
+        status, output = self.hint('packages/core/src/Support/LegacyMediaFactory.php')
+
+        self.assertEqual(status, 0, output)
+        self.assertIn('packages/content-sections/tests/Feature/SectionMediaTest.php', output)
+
+    def test_an_absolute_path_and_a_packages_subdirectory_still_find_consumers(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            status = hint.main(['--core', str(self.core), '--packages', str(self.packages / 'packages'),
+                                str(self.core / 'packages/core/src/Actions/BuildSite.php')])
+
+        self.assertEqual(status, 0, output.getvalue())
+        self.assertIn('packages/ai-creator/tests/Feature/ApplySessionTest.php', output.getvalue())
 
     def test_a_missing_packages_checkout_fails_instead_of_reporting_no_consumers(self):
         output = io.StringIO()
